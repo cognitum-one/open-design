@@ -905,7 +905,7 @@ process.stdin.on("end", () => {
     expect(scopes).toContain("ui_p0_validation_required: ${{ steps.detect.outputs.ui_p0_validation_required }}");
     expect(scopes).toContain("run_ui_p0: ${{ steps.detect.outputs.run_ui_p0 }}");
     expect(workflow).toContain("needs.scopes.outputs.run_ui_p0 == 'true'");
-    expect(validate).toContain('when($out.run_ui_p0 == "true"; ["ui_p0_smoke", "ui_p0"])');
+    expect(validate).toContain('when($out.run_ui_p0 == "true"; ["ui_p0"])');
 
     await expect(runScopesPrint("workflow_dispatch", { inputs: { ci_mode: "hot" } }, ["apps/web/src/app/page.tsx"])).resolves.toMatchObject({
       ci_mode: "hot",
@@ -1029,29 +1029,18 @@ process.stdin.on("end", () => {
       "ui/workspace-keyboard-flows.test.ts",
     ]);
     expect(uiP0Groups["project-workspace"].workers).toBe(1);
-    expect(uiP0Groups["project-workspace-distributed"]).toEqual({
-      grep: String.raw`\[P0\]|@merge-sentinel`,
+    expect(uiP0Groups["critical-extras"]).toEqual({
+      grep: "@merge-extra",
       workers: 1,
-      files: uiP0Groups["project-workspace"].files,
+      files: ["ui/app.test.ts"],
     });
-    expect(uiP0Groups["workspace-restoration-distributed"]).toEqual({
+    expect(uiP0Groups["workspace-restoration"]).toEqual({
       grep: String.raw`\[P0\]`,
       files: ["ui/app-restoration.test.ts", "ui/critical-smoke.test.ts"],
     });
-    expect(uiP0Groups["critical-extras"]).toEqual({
-      grep: "@merge-sentinel",
-      files: ["ui/app.test.ts"],
-    });
-    expect(uiP0Groups["workspace-restoration-smoke"]).toEqual(
-      uiP0Groups["workspace-restoration-distributed"],
-    );
-    expect(uiP0Groups["merge-sentinel"]).toEqual({
-      grep: "@merge-sentinel",
-      files: ["ui/critical-smoke.test.ts", "ui/app.test.ts"],
-    });
-    const sentinel = sectionBetween(workflow, "  ui_p0_smoke:", "  ui_p0:");
-    expect(sentinel).toContain("run-ui-group merge-sentinel");
-    expect(sentinel).not.toContain("run-ui-group smoke");
+    expect(workflow).not.toContain("  ui_p0_smoke:");
+    expect(uiP0).toContain("run-ui-group critical-extras");
+    expect(uiP0).toContain("Preserve project-runtime domain artifact");
     expect(visual).toContain("fromJSON(needs.runners.outputs.runs_on).visual_hot");
     expect(visual).toContain("toJSON(fromJSON(needs.runners.outputs.runs_on).visual_hot)");
     expect(workflow).not.toContain("needs.runners.outputs.contabo_control");
@@ -1059,19 +1048,15 @@ process.stdin.on("end", () => {
     expect(workflow).not.toContain("needs.runners.outputs.blacksmith_default");
   });
 
-  it("[P2] keeps functional visual ownership and P0 benchmark layouts explicit", async () => {
+  it("[P2] keeps functional visual ownership and manual P0 topology explicit", async () => {
     const playwrightConfig = await readFile(playwrightConfigPath, "utf8");
     const benchmarkWorkflow = await readFile(uiExtendedMainWorkflowPath, "utf8");
 
     expect(playwrightConfig).toContain("testIgnore: 'visual-*.test.ts'");
-    expect(benchmarkWorkflow).toContain("layout:");
-    expect(benchmarkWorkflow).toContain("- standalone");
-    expect(benchmarkWorkflow).toContain("- distributed");
-    expect(benchmarkWorkflow).toContain("- split");
-    expect(benchmarkWorkflow).toContain("- workspace-restoration");
-    expect(benchmarkWorkflow).toContain("- project-runtime");
-    expect(benchmarkWorkflow).toContain("- entry-settings");
-    expect(benchmarkWorkflow).toContain("run-ui-group merge-sentinel");
+    expect(benchmarkWorkflow).not.toContain("layout:");
+    expect(benchmarkWorkflow).toContain("run-ui-group critical-extras");
+    expect(benchmarkWorkflow).toContain("Preserve project-runtime domain artifact");
+    expect(benchmarkWorkflow).toContain("--grep-invert '@merge-extra'");
     expect(benchmarkWorkflow).toContain("name: project-workspace");
   });
 

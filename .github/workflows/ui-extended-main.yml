@@ -15,18 +15,6 @@ on:
           - p0
           - p0p1
           - full
-      layout:
-        description: "P0 merge-sentinel layout (manual benchmark only)"
-        required: true
-        default: standalone
-        type: choice
-        options:
-          - standalone
-          - distributed
-          - split
-          - workspace-restoration
-          - project-runtime
-          - entry-settings
 
 permissions:
   contents: read
@@ -36,8 +24,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  benchmark_runners:
-    name: Resolve benchmark runner profiles
+  p0_runners:
+    name: Resolve P0 runner profiles
     if: ${{ github.repository == 'nexu-io/open-design' && github.event_name == 'workflow_dispatch' && inputs.suite != 'full' }}
     runs-on: ubuntu-24.04
     outputs:
@@ -53,62 +41,11 @@ jobs:
           OD_CI_RUNNER_MODE: ${{ vars.OD_CI_RUNNER_MODE }}
         run: python3 .github/scripts/runners.py
 
-  ui_p0_sentinel:
-    name: UI P0 (merge-sentinel)
-    needs: [benchmark_runners]
-    if: ${{ github.repository == 'nexu-io/open-design' && github.event_name == 'workflow_dispatch' && inputs.suite != 'full' && inputs.layout == 'standalone' }}
-    runs-on: ${{ fromJSON(needs.benchmark_runners.outputs.runs_on).ui_hot }}
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-
-      - name: Configure CI parallelism
-        uses: ./.github/actions/configure-ci-parallelism
-
-      - name: Setup workspace
-        uses: ./.github/actions/setup-workspace
-        with:
-          runner-labels: ${{ toJSON(fromJSON(needs.benchmark_runners.outputs.runs_on).ui_hot) }}
-
-      - name: Setup Playwright
-        uses: ./.github/actions/setup-playwright
-        with:
-          package-json-path: e2e/package.json
-          install-command: pnpm -C e2e exec playwright install --with-deps chromium
-          runner-labels: ${{ toJSON(fromJSON(needs.benchmark_runners.outputs.runs_on).ui_hot) }}
-
-      - name: Prebuild workspace type declarations
-        run: |
-          pnpm --filter @open-design/daemon build
-          pnpm --filter @open-design/desktop build
-          pnpm --filter @open-design/web build:sidecar
-
-      - name: Clean Playwright state
-        run: pnpm -C e2e exec tsx scripts/playwright.ts clean
-
-      - name: Run UI merge sentinel
-        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group merge-sentinel
-
-      - name: Upload Playwright debug artifact
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ui-p0-benchmark-${{ github.run_id }}-${{ inputs.layout }}-merge-sentinel
-          path: |
-            e2e/ui/reports/playwright-html-report
-            e2e/ui/reports/test-results
-            e2e/ui/reports/results.json
-            e2e/ui/test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
   ui_p0:
     name: UI P0 (${{ matrix.name }})
-    needs: [benchmark_runners]
+    needs: [p0_runners]
     if: ${{ github.repository == 'nexu-io/open-design' && github.event_name == 'workflow_dispatch' && inputs.suite != 'full' }}
-    runs-on: ${{ fromJSON(needs.benchmark_runners.outputs.runs_on).ui_hot }}
+    runs-on: ${{ fromJSON(needs.p0_runners.outputs.runs_on).ui_hot }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -116,20 +53,12 @@ jobs:
         include:
           - name: entry-settings
             shard: entry-settings
-            distributed_shard: entry-settings
-            split_shard: entry-settings
           - name: project-workspace
             shard: project-workspace
-            distributed_shard: project-workspace-distributed
-            split_shard: project-workspace
           - name: project-runtime
             shard: project-runtime
-            distributed_shard: project-runtime
-            split_shard: project-runtime
           - name: workspace-restoration
             shard: workspace-restoration
-            distributed_shard: workspace-restoration-distributed
-            split_shard: workspace-restoration-smoke
 
     steps:
       - name: Checkout
@@ -141,14 +70,14 @@ jobs:
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
         with:
-          runner-labels: ${{ toJSON(fromJSON(needs.benchmark_runners.outputs.runs_on).ui_hot) }}
+          runner-labels: ${{ toJSON(fromJSON(needs.p0_runners.outputs.runs_on).ui_hot) }}
 
       - name: Setup Playwright
         uses: ./.github/actions/setup-playwright
         with:
           package-json-path: e2e/package.json
           install-command: pnpm -C e2e exec playwright install --with-deps chromium
-          runner-labels: ${{ toJSON(fromJSON(needs.benchmark_runners.outputs.runs_on).ui_hot) }}
+          runner-labels: ${{ toJSON(fromJSON(needs.p0_runners.outputs.runs_on).ui_hot) }}
 
       - name: Prebuild workspace type declarations
         run: |
@@ -160,21 +89,30 @@ jobs:
         run: pnpm -C e2e exec tsx scripts/playwright.ts clean
 
       - name: Run UI P0 domain
-        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group ${{ inputs.layout == 'distributed' && matrix.distributed_shard || inputs.layout == 'split' && matrix.split_shard || matrix.shard }}
+        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group ${{ matrix.shard }}
 
-      - name: Run hosted UI critical extras
-        if: ${{ inputs.layout == 'split' && matrix.shard == 'project-runtime' }}
+      - name: Preserve project-runtime domain artifact
+        if: ${{ success() && matrix.shard == 'project-runtime' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-extended-main-${{ github.run_id }}-p0-${{ matrix.name }}-domain
+          path: |
+            e2e/ui/reports/playwright-html-report
+            e2e/ui/reports/test-results
+            e2e/ui/reports/results.json
+            e2e/ui/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Run UI critical extras
+        if: ${{ matrix.shard == 'project-runtime' }}
         run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group critical-extras
-
-      - name: Run hosted UI merge sentinel
-        if: ${{ (inputs.layout == 'workspace-restoration' && matrix.shard == 'workspace-restoration') || (inputs.layout == 'project-runtime' && matrix.shard == 'project-runtime') || (inputs.layout == 'entry-settings' && matrix.shard == 'entry-settings') }}
-        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group merge-sentinel
 
       - name: Upload Playwright debug artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ui-p0-benchmark-${{ github.run_id }}-${{ inputs.layout }}-${{ matrix.name }}
+          name: ui-extended-main-${{ github.run_id }}-p0-${{ matrix.name }}
           path: |
             e2e/ui/reports/playwright-html-report
             e2e/ui/reports/test-results
@@ -194,10 +132,10 @@ jobs:
         include:
           - name: P1 shard 1
             part: p1
-            command: pnpm -C e2e exec playwright test -c playwright.config.ts ui --grep '\[P1\]' --shard=1/2
+            command: pnpm -C e2e exec playwright test -c playwright.config.ts ui --grep '\[P1\]' --grep-invert '@merge-extra' --shard=1/2
           - name: P1 shard 2
             part: p1
-            command: pnpm -C e2e exec playwright test -c playwright.config.ts ui --grep '\[P1\]' --shard=2/2
+            command: pnpm -C e2e exec playwright test -c playwright.config.ts ui --grep '\[P1\]' --grep-invert '@merge-extra' --shard=2/2
 
     steps:
       - name: Checkout
