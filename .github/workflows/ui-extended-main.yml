@@ -22,6 +22,7 @@ on:
         type: choice
         options:
           - standalone
+          - distributed
           - workspace-restoration
           - project-runtime
           - entry-settings
@@ -114,12 +115,16 @@ jobs:
         include:
           - name: entry-settings
             shard: entry-settings
+            distributed_shard: entry-settings
           - name: project-workspace
             shard: project-workspace
+            distributed_shard: project-workspace-distributed
           - name: project-runtime
             shard: project-runtime
+            distributed_shard: project-runtime
           - name: workspace-restoration
             shard: workspace-restoration
+            distributed_shard: workspace-restoration-distributed
 
     steps:
       - name: Checkout
@@ -150,7 +155,7 @@ jobs:
         run: pnpm -C e2e exec tsx scripts/playwright.ts clean
 
       - name: Run UI P0 domain
-        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group ${{ matrix.shard }}
+        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group ${{ inputs.layout == 'distributed' && matrix.distributed_shard || matrix.shard }}
 
       - name: Run hosted UI merge sentinel
         if: ${{ (inputs.layout == 'workspace-restoration' && matrix.shard == 'workspace-restoration') || (inputs.layout == 'project-runtime' && matrix.shard == 'project-runtime') || (inputs.layout == 'entry-settings' && matrix.shard == 'entry-settings') }}

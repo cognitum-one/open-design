@@ -27,6 +27,10 @@ export const uiP0Groups = {
     grep: String.raw`\[P0\]`,
     files: ["ui/app-restoration.test.ts"],
   },
+  "workspace-restoration-distributed": {
+    grep: String.raw`\[P0\]`,
+    files: ["ui/app-restoration.test.ts", "ui/critical-smoke.test.ts"],
+  },
   "entry-settings": {
     grep: String.raw`\[P0\]`,
     files: [
@@ -41,6 +45,17 @@ export const uiP0Groups = {
   },
   "project-workspace": {
     grep: String.raw`\[P0\]`,
+    workers: 1,
+    files: [
+      "ui/app.test.ts",
+      "ui/app-design-files.test.ts",
+      "ui/app-manual-edit.test.ts",
+      "ui/project-management-flows.test.ts",
+      "ui/workspace-keyboard-flows.test.ts",
+    ],
+  },
+  "project-workspace-distributed": {
+    grep: String.raw`\[P0\]|@merge-sentinel`,
     workers: 1,
     files: [
       "ui/app.test.ts",
