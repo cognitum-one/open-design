@@ -3934,6 +3934,7 @@ export function ProjectView({
                 beforeFileNames,
                 nextFiles,
                 touchedFilePaths,
+                project.id,
               ) ?? [],
               recoveredExistingArtifact,
             );
@@ -3941,7 +3942,11 @@ export function ProjectView({
               ...autoOpenArtifactOptions,
               turnStartedAt: status.createdAt || message.startedAt || message.createdAt || null,
               turnEndedAt: message.endedAt || legacyReplayEndedAt || null,
-              agentTouchedFileNames: resolveAgentTouchedFileNames(touchedFilePaths, nextFiles),
+              agentTouchedFileNames: resolveAgentTouchedFileNames(
+                touchedFilePaths,
+                nextFiles,
+                project.id,
+              ),
             });
             if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
             const deliveryOutcome = resolveDesignDeliveryOutcome({
@@ -4251,6 +4256,7 @@ export function ProjectView({
                     beforeFileNames,
                     nextFiles,
                     touchedFilePaths,
+                    project.id,
                   ) ?? [],
                   recoveredExistingArtifact,
                 );
@@ -4258,7 +4264,11 @@ export function ProjectView({
                   ...autoOpenArtifactOptions,
                   turnStartedAt: status.createdAt || message.startedAt || message.createdAt || null,
                   turnEndedAt: endedAt ?? null,
-                  agentTouchedFileNames: resolveAgentTouchedFileNames(touchedFilePaths, nextFiles),
+                  agentTouchedFileNames: resolveAgentTouchedFileNames(
+                    touchedFilePaths,
+                    nextFiles,
+                    project.id,
+                  ),
                 });
                 if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
                 const deliveryContent = needsFullReplay ? replayedContent : message.content;
@@ -5685,12 +5695,17 @@ export function ProjectView({
                 beforeFileNames,
                 nextFiles,
                 traceTouchedFilePaths,
+                project.id,
               ) ?? [];
               const producedArtifactToOpen = selectAutoOpenTurnArtifact(produced, nextFiles, {
                 ...autoOpenArtifactOptions,
                 turnStartedAt: startedAt,
                 turnEndedAt: endedAt ?? null,
-                agentTouchedFileNames: resolveAgentTouchedFileNames(traceTouchedFilePaths, nextFiles),
+                agentTouchedFileNames: resolveAgentTouchedFileNames(
+                  traceTouchedFilePaths,
+                  nextFiles,
+                  project.id,
+                ),
               });
               if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
               const deliveryCandidate: ChatMessage = {
@@ -9746,6 +9761,7 @@ export function computeTraceObjectFiles(
   beforeNames: ReadonlySet<string> | readonly string[] | undefined,
   next: readonly ProjectFile[],
   touchedPaths: Iterable<string> = [],
+  projectId?: string,
 ): ProjectFile[] | undefined {
   if (!beforeNames) return undefined;
   const set = beforeNames instanceof Set ? beforeNames : new Set(beforeNames);
@@ -9754,7 +9770,7 @@ export function computeTraceObjectFiles(
     byName.set(file.name, { ...file, traceObjectReason: 'new' });
   }
   for (const rawPath of touchedPaths) {
-    const file = findTouchedProjectFile(rawPath, next);
+    const file = findTouchedProjectFile(rawPath, next, projectId);
     if (!file) continue;
     byName.set(file.name, {
       ...file,
@@ -9764,10 +9780,18 @@ export function computeTraceObjectFiles(
   return [...byName.values()];
 }
 
-function findTouchedProjectFile(rawPath: string, files: readonly ProjectFile[]): ProjectFile | null {
+function findTouchedProjectFile(
+  rawPath: string,
+  files: readonly ProjectFile[],
+  projectId?: string,
+): ProjectFile | null {
   const normalized = normalizeComparableFilePath(rawPath);
   if (!normalized) return null;
-  const hasPathSeparator = normalized.includes('/');
+  const managedProjectRelativePath = relativePathFromManagedProjectAlias(normalized, projectId);
+  const comparablePaths = managedProjectRelativePath
+    ? [normalized, managedProjectRelativePath]
+    : [normalized];
+  const hasPathSeparator = comparablePaths.every((candidate) => candidate.includes('/'));
   const basename = normalized.split('/').pop() ?? normalized;
   const normalizedFiles = files.map((file) => ({
     file,
@@ -9785,13 +9809,15 @@ function findTouchedProjectFile(rawPath: string, files: readonly ProjectFile[]):
     return matched;
   };
 
-  const exact = matches((candidate) => candidate === normalized);
+  const exact = matches((candidate) => comparablePaths.includes(candidate));
   if (exact.length === 1) return exact[0]!;
   if (exact.length > 1) return null;
 
   const suffix = matches((candidate) =>
     candidate.includes('/') &&
-    (candidate.endsWith(`/${normalized}`) || normalized.endsWith(`/${candidate}`)),
+    comparablePaths.some((comparablePath) =>
+      candidate.endsWith(`/${comparablePath}`) || comparablePath.endsWith(`/${candidate}`),
+    ),
   );
   if (suffix.length === 1) return suffix[0]!;
   if (suffix.length > 1) return null;
@@ -9802,6 +9828,18 @@ function findTouchedProjectFile(rawPath: string, files: readonly ProjectFile[]):
     candidates.some((candidate) => candidate.split('/').pop() === basename),
   );
   return basenameMatches.length === 1 ? basenameMatches[0]!.file : null;
+}
+
+function relativePathFromManagedProjectAlias(
+  normalizedPath: string,
+  projectId: string | undefined,
+): string | null {
+  const normalizedProjectId = normalizeComparableFilePath(projectId ?? '');
+  if (!normalizedProjectId || normalizedProjectId.includes('/')) return null;
+  const marker = `projects/${normalizedProjectId}/`;
+  const markerIndex = normalizedPath.lastIndexOf(marker);
+  if (markerIndex < 0 || (markerIndex > 0 && normalizedPath[markerIndex - 1] !== '/')) return null;
+  return normalizedPath.slice(markerIndex + marker.length) || null;
 }
 
 function normalizeComparableFilePath(value: string): string {
@@ -9820,10 +9858,11 @@ function normalizeComparableFilePath(value: string): string {
 export function resolveAgentTouchedFileNames(
   touchedPaths: Iterable<string>,
   files: readonly ProjectFile[],
+  projectId?: string,
 ): Set<string> {
   const names = new Set<string>();
   for (const rawPath of touchedPaths) {
-    const file = findTouchedProjectFile(rawPath, files);
+    const file = findTouchedProjectFile(rawPath, files, projectId);
     if (file) names.add(file.name);
   }
   return names;
