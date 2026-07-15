@@ -18,6 +18,7 @@ import type {
   DesignSystemsTemplatesModalSurfaceViewProps,
   AssistantFeedbackReasonPanelSurfaceViewProps,
   QuestionsFormSurfaceViewProps,
+  PreviewRunStatusSurfaceViewProps,
   // ui_click
   HomeNavClickProps,
   HelpPopoverClickProps,
@@ -70,6 +71,7 @@ import type {
   NextStepActionClickProps,
   QuestionsFormClickProps,
   RunFailedToastClickProps,
+  PreviewRunStatusClickProps,
   AmrAuthResultProps,
   AmrEntryClickProps,
   RunFailedToastSurfaceViewProps,
@@ -256,6 +258,13 @@ export function trackRunFailedToastSurfaceView(
   send(track, 'surface_view', props);
 }
 
+export function trackPreviewRunStatusSurfaceView(
+  track: Track,
+  props: PreviewRunStatusSurfaceViewProps,
+): void {
+  send(track, 'surface_view', props);
+}
+
 export function trackQuestionsFormSurfaceView(
   track: Track,
   props: QuestionsFormSurfaceViewProps,
@@ -266,6 +275,13 @@ export function trackQuestionsFormSurfaceView(
 export function trackRunFailedToastGoAmrClick(
   track: Track,
   props: RunFailedToastClickProps,
+): void {
+  send(track, 'ui_click', props);
+}
+
+export function trackPreviewRunStatusClick(
+  track: Track,
+  props: PreviewRunStatusClickProps,
 ): void {
   send(track, 'ui_click', props);
 }
