@@ -19,6 +19,10 @@ export const uiP0Groups = {
     grep: "@merge-sentinel",
     files: ["ui/critical-smoke.test.ts", "ui/app.test.ts"],
   },
+  "critical-extras": {
+    grep: "@merge-sentinel",
+    files: ["ui/app.test.ts"],
+  },
   smoke: {
     grep: String.raw`\[P0\]`,
     files: ["ui/critical-smoke.test.ts"],
@@ -28,6 +32,10 @@ export const uiP0Groups = {
     files: ["ui/app-restoration.test.ts"],
   },
   "workspace-restoration-distributed": {
+    grep: String.raw`\[P0\]`,
+    files: ["ui/app-restoration.test.ts", "ui/critical-smoke.test.ts"],
+  },
+  "workspace-restoration-smoke": {
     grep: String.raw`\[P0\]`,
     files: ["ui/app-restoration.test.ts", "ui/critical-smoke.test.ts"],
   },

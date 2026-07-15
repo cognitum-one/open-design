@@ -1038,6 +1038,13 @@ process.stdin.on("end", () => {
       grep: String.raw`\[P0\]`,
       files: ["ui/app-restoration.test.ts", "ui/critical-smoke.test.ts"],
     });
+    expect(uiP0Groups["critical-extras"]).toEqual({
+      grep: "@merge-sentinel",
+      files: ["ui/app.test.ts"],
+    });
+    expect(uiP0Groups["workspace-restoration-smoke"]).toEqual(
+      uiP0Groups["workspace-restoration-distributed"],
+    );
     expect(uiP0Groups["merge-sentinel"]).toEqual({
       grep: "@merge-sentinel",
       files: ["ui/critical-smoke.test.ts", "ui/app.test.ts"],
@@ -1060,6 +1067,7 @@ process.stdin.on("end", () => {
     expect(benchmarkWorkflow).toContain("layout:");
     expect(benchmarkWorkflow).toContain("- standalone");
     expect(benchmarkWorkflow).toContain("- distributed");
+    expect(benchmarkWorkflow).toContain("- split");
     expect(benchmarkWorkflow).toContain("- workspace-restoration");
     expect(benchmarkWorkflow).toContain("- project-runtime");
     expect(benchmarkWorkflow).toContain("- entry-settings");

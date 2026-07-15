@@ -23,6 +23,7 @@ on:
         options:
           - standalone
           - distributed
+          - split
           - workspace-restoration
           - project-runtime
           - entry-settings
@@ -116,15 +117,19 @@ jobs:
           - name: entry-settings
             shard: entry-settings
             distributed_shard: entry-settings
+            split_shard: entry-settings
           - name: project-workspace
             shard: project-workspace
             distributed_shard: project-workspace-distributed
+            split_shard: project-workspace
           - name: project-runtime
             shard: project-runtime
             distributed_shard: project-runtime
+            split_shard: project-runtime
           - name: workspace-restoration
             shard: workspace-restoration
             distributed_shard: workspace-restoration-distributed
+            split_shard: workspace-restoration-smoke
 
     steps:
       - name: Checkout
@@ -155,7 +160,13 @@ jobs:
         run: pnpm -C e2e exec tsx scripts/playwright.ts clean
 
       - name: Run UI P0 domain
-        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group ${{ inputs.layout == 'distributed' && matrix.distributed_shard || matrix.shard }}
+        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group ${{ inputs.layout == 'distributed' && matrix.distributed_shard || inputs.layout == 'split' && matrix.split_shard || matrix.shard }}
+
+      - name: Run hosted UI critical extras
+        if: ${{ inputs.layout == 'split' && matrix.shard == 'project-runtime' }}
+        env:
+          OD_PLAYWRIGHT_FULLY_PARALLEL: "1"
+        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group critical-extras
 
       - name: Run hosted UI merge sentinel
         if: ${{ (inputs.layout == 'workspace-restoration' && matrix.shard == 'workspace-restoration') || (inputs.layout == 'project-runtime' && matrix.shard == 'project-runtime') || (inputs.layout == 'entry-settings' && matrix.shard == 'entry-settings') }}
