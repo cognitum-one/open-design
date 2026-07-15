@@ -442,7 +442,7 @@ jobs:
         run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '@critical'
 
   ui_p0_smoke:
-    name: UI P0 smoke
+    name: UI merge sentinel
     needs: [scopes, runners]
     if: ${{ needs.scopes.outputs.run_ui_p0 == 'true' }}
     runs-on: ${{ fromJSON(needs.runners.outputs.runs_on).ui_hot }}
@@ -476,14 +476,14 @@ jobs:
       - name: Clean Playwright state
         run: pnpm -C e2e exec tsx scripts/playwright.ts clean
 
-      - name: Run UI shell smoke
-        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group smoke
+      - name: Run UI merge sentinel
+        run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group merge-sentinel
 
       - name: Upload Playwright debug artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ui-p0-ci-${{ github.run_id }}-smoke
+          name: ui-p0-ci-${{ github.run_id }}-merge-sentinel
           path: |
             e2e/ui/reports/playwright-html-report
             e2e/ui/reports/test-results

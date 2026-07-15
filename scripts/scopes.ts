@@ -119,14 +119,15 @@ function createRunPlan(
   ciMode: CiMode,
 ): Omit<ScopePlan, keyof ScopeOutputs | "ui_p0_matrix" | "visual_matrix"> {
   const isFull = ciMode === "full";
+  const runUiP0 = isFull || outputs.ui_p0_validation_required;
 
   return {
     ci_mode: ciMode,
     run_e2e_vitest: isFull || outputs.web_tests_required || outputs.ui_p0_validation_required,
-    run_playwright_critical: isFull || (outputs.workspace_validation_required && !outputs.ui_p0_validation_required),
+    run_playwright_critical: outputs.workspace_validation_required && !runUiP0,
     run_playwright_visual: isFull || outputs.visual_validation_required,
     run_preflight: true,
-    run_ui_p0: isFull || outputs.ui_p0_validation_required,
+    run_ui_p0: runUiP0,
     run_web_workspace_tests: isFull || outputs.web_tests_required,
     run_windows_tools_pack_payload_tests: isFull || outputs.tools_pack_tests_required,
     run_workspace_unit_tests: true,

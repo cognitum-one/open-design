@@ -15,6 +15,10 @@ export type VisualCiMatrixEntry = {
 };
 
 export const uiP0Groups = {
+  "merge-sentinel": {
+    grep: "@merge-sentinel",
+    files: ["ui/critical-smoke.test.ts", "ui/app.test.ts"],
+  },
   smoke: {
     grep: String.raw`\[P0\]`,
     files: ["ui/critical-smoke.test.ts"],

@@ -15,6 +15,8 @@ const execFileAsync = promisify(execFile);
 const e2eRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const workspaceRoot = dirname(e2eRoot);
 const ciWorkflowPath = join(workspaceRoot, ".github", "workflows", "ci.yml");
+const uiExtendedMainWorkflowPath = join(workspaceRoot, ".github", "workflows", "ui-extended-main.yml");
+const playwrightConfigPath = join(e2eRoot, "playwright.config.ts");
 const commentWorkflowPath = join(workspaceRoot, ".github", "workflows", "comment.atom.yml");
 const autofixWorkflowPath = join(workspaceRoot, ".github", "workflows", "autofix.atom.yml");
 const reportWorkflowPath = join(workspaceRoot, ".github", "workflows", "report.atom.yml");
@@ -908,16 +910,24 @@ process.stdin.on("end", () => {
     await expect(runScopesPrint("workflow_dispatch", { inputs: { ci_mode: "hot" } }, ["apps/web/src/app/page.tsx"])).resolves.toMatchObject({
       ci_mode: "hot",
       run_ui_p0: true,
+      run_playwright_critical: false,
+    });
+    await expect(runScopesPrint("workflow_dispatch", { inputs: { ci_mode: "hot" } }, ["tools/pack/src/index.ts"])).resolves.toMatchObject({
+      ci_mode: "hot",
+      run_ui_p0: false,
+      run_playwright_critical: true,
     });
     await expect(runScopesPrint("workflow_dispatch", { inputs: {} })).resolves.toMatchObject({
       ci_mode: "full",
       ui_p0_validation_required: true,
+      run_playwright_critical: false,
       run_ui_p0: true,
       run_preflight: true,
     });
     await expect(runScopesPrint("merge_group", {})).resolves.toMatchObject({
       ci_mode: "full",
       ui_p0_validation_required: true,
+      run_playwright_critical: false,
       run_ui_p0: true,
       run_preflight: true,
     });
@@ -1019,11 +1029,31 @@ process.stdin.on("end", () => {
       "ui/workspace-keyboard-flows.test.ts",
     ]);
     expect(uiP0Groups["project-workspace"].workers).toBe(1);
+    expect(uiP0Groups["merge-sentinel"]).toEqual({
+      grep: "@merge-sentinel",
+      files: ["ui/critical-smoke.test.ts", "ui/app.test.ts"],
+    });
+    const sentinel = sectionBetween(workflow, "  ui_p0_smoke:", "  ui_p0:");
+    expect(sentinel).toContain("run-ui-group merge-sentinel");
+    expect(sentinel).not.toContain("run-ui-group smoke");
     expect(visual).toContain("fromJSON(needs.runners.outputs.runs_on).visual_hot");
     expect(visual).toContain("toJSON(fromJSON(needs.runners.outputs.runs_on).visual_hot)");
     expect(workflow).not.toContain("needs.runners.outputs.contabo_control");
     expect(workflow).not.toContain("needs.runners.outputs.hosted_or_blacksmith");
     expect(workflow).not.toContain("needs.runners.outputs.blacksmith_default");
+  });
+
+  it("[P2] keeps functional visual ownership and P0 benchmark layouts explicit", async () => {
+    const playwrightConfig = await readFile(playwrightConfigPath, "utf8");
+    const benchmarkWorkflow = await readFile(uiExtendedMainWorkflowPath, "utf8");
+
+    expect(playwrightConfig).toContain("testIgnore: 'visual-*.test.ts'");
+    expect(benchmarkWorkflow).toContain("layout:");
+    expect(benchmarkWorkflow).toContain("- standalone");
+    expect(benchmarkWorkflow).toContain("- project-runtime");
+    expect(benchmarkWorkflow).toContain("- entry-settings");
+    expect(benchmarkWorkflow).toContain("run-ui-group merge-sentinel");
+    expect(benchmarkWorkflow).toContain("name: project-workspace");
   });
 
   it("[P2] resolves CI runner profiles by mode", async () => {

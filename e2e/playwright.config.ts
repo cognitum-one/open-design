@@ -11,6 +11,7 @@ function parseWorkerCount(value: string | undefined): number {
 
 export default defineConfig({
   testDir: './ui',
+  testIgnore: 'visual-*.test.ts',
   outputDir: './ui/reports/test-results',
   timeout: Number(process.env.OD_PLAYWRIGHT_TIMEOUT) || 45_000,
   retries: process.env.CI ? 1 : 0,
