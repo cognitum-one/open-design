@@ -22,6 +22,7 @@ on:
         type: choice
         options:
           - standalone
+          - workspace-restoration
           - project-runtime
           - entry-settings
 
@@ -152,7 +153,7 @@ jobs:
         run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group ${{ matrix.shard }}
 
       - name: Run hosted UI merge sentinel
-        if: ${{ (inputs.layout == 'project-runtime' && matrix.shard == 'project-runtime') || (inputs.layout == 'entry-settings' && matrix.shard == 'entry-settings') }}
+        if: ${{ (inputs.layout == 'workspace-restoration' && matrix.shard == 'workspace-restoration') || (inputs.layout == 'project-runtime' && matrix.shard == 'project-runtime') || (inputs.layout == 'entry-settings' && matrix.shard == 'entry-settings') }}
         run: pnpm -C e2e exec tsx scripts/playwright.ts run-ui-group merge-sentinel
 
       - name: Upload Playwright debug artifact

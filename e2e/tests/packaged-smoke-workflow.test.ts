@@ -1050,6 +1050,7 @@ process.stdin.on("end", () => {
     expect(playwrightConfig).toContain("testIgnore: 'visual-*.test.ts'");
     expect(benchmarkWorkflow).toContain("layout:");
     expect(benchmarkWorkflow).toContain("- standalone");
+    expect(benchmarkWorkflow).toContain("- workspace-restoration");
     expect(benchmarkWorkflow).toContain("- project-runtime");
     expect(benchmarkWorkflow).toContain("- entry-settings");
     expect(benchmarkWorkflow).toContain("run-ui-group merge-sentinel");
