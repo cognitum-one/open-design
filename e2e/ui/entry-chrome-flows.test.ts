@@ -899,8 +899,11 @@ test('[P1] home starters can browse registry and use a starter from Home', async
   });
 
   await gotoEntryHome(page);
-  await expect(page.getByTestId('plugins-home-browse-registry')).toBeVisible();
-  await page.getByTestId('plugins-home-browse-registry').click();
+  // The browse link lives inside the first-run reveal container; reveal it
+  // first or the collapsed overlay intercepts the click.
+  const home = await revealHomeTemplates(page);
+  await expect(home.getByTestId('plugins-home-browse-registry')).toBeVisible();
+  await home.getByTestId('plugins-home-browse-registry').click();
   await expect(page).toHaveURL(/\/plugins$/);
   await expect(page.getByTestId('entry-nav-plugins')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('h1').filter({ hasText: 'Plugins' })).toBeVisible();
@@ -1680,7 +1683,10 @@ test('[P1] home starters Use plugin from the details modal applies the plugin to
   });
 
   await gotoEntryHome(page);
-  await page.getByTestId('plugins-home-details-detail-use-plugin').click({ force: true });
+  // Reveal first: a force-click on the details testid inside the collapsed
+  // (inert) reveal container is silently swallowed.
+  const detailHome = await revealHomeTemplates(page);
+  await detailHome.getByTestId('plugins-home-details-detail-use-plugin').click({ force: true });
 
   const dialog = page.getByRole('dialog', { name: /Detail Use Plugin preview/i });
   await expect(dialog).toBeVisible();

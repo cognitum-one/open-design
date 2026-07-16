@@ -904,7 +904,14 @@ async function configureByokOpenCodeWithoutProvider(page: Page) {
       onboardingCompleted: true,
       agentId: 'byok-opencode',
       agentModels: { 'byok-opencode': { model: 'default', reasoning: 'default' } },
-      agentCliEnv: {},
+      // byok-opencode availability resolves through the `opencode` agent's
+      // configured cli env (daemon detection maps byok-opencode → opencode).
+      // Point it at the fake runtime binary: runners without a real
+      // `opencode` on PATH otherwise report the agent unavailable and the
+      // web composer refuses to POST /api/runs at all. The run still fails
+      // pre-spawn on the missing provider config — this spec's oracle — so
+      // the fake binary is never executed.
+      agentCliEnv: { opencode: fakeRuntimes.opencode.env },
       skillId: null,
       designSystemId: null,
     },
