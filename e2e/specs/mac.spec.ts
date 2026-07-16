@@ -49,25 +49,40 @@ const healthExpression = `
     };
   })()
 `;
-const pptxExportExpression = `
+const upgradePersistenceProjectId = `packaged-upgrade-persistence-${Date.now().toString(36)}`;
+const upgradePersistenceSeedExpression = `
   (async () => {
-    const projectId = 'packaged-payload-pptx-' + Date.now().toString(36);
+    const projectId = ${JSON.stringify(upgradePersistenceProjectId)};
     const html = '<!doctype html><html><head><style>' +
       'html,body{margin:0}.slide{width:1920px;height:1080px;display:flex;align-items:center;justify-content:center;font:96px sans-serif;color:white}' +
       '.slide:first-child{background:#17324d}.slide:last-child{background:#8b3a2b}' +
-      '</style></head><body><section class="slide">Payload One</section><section class="slide">Payload Two</section></body></html>';
+      '</style></head><body><section class="slide">Upgrade From Outer</section><section class="slide">Persistence Check</section></body></html>';
     const created = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: projectId, name: 'Packaged payload PPTX' }),
+      body: JSON.stringify({ id: projectId, name: 'Packaged upgrade persistence' }),
     });
-    if (!created.ok) throw new Error('project create failed: ' + created.status);
-    const written = await fetch('/api/projects/' + encodeURIComponent(projectId) + '/files', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'deck.html', content: html }),
-    });
-    if (!written.ok) throw new Error('deck write failed: ' + written.status);
+    const written = created.ok
+      ? await fetch('/api/projects/' + encodeURIComponent(projectId) + '/files', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'deck.html', content: html }),
+        })
+      : null;
+    return {
+      createdOk: created.ok,
+      createdStatus: created.status,
+      projectId,
+      writtenOk: written?.ok ?? false,
+      writtenStatus: written?.status ?? null,
+    };
+  })()
+`;
+
+function existingProjectPptxExportExpression(projectId: string): string {
+  return `
+  (async () => {
+    const projectId = ${JSON.stringify(projectId)};
     const exported = await fetch('/api/projects/' + encodeURIComponent(projectId) + '/export/pptx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -82,7 +97,8 @@ const pptxExportExpression = `
       status: exported.status,
     };
   })()
-`;
+  `;
+}
 const updaterPopupExpression = `
   (() => {
     const popup = document.querySelector('[data-testid="updater-popup"]');
@@ -268,6 +284,14 @@ type PptxExportEvalValue = {
   status: number;
 };
 
+type UpgradePersistenceSeed = {
+  createdOk: boolean;
+  createdStatus: number;
+  projectId: string;
+  writtenOk: boolean;
+  writtenStatus: number | null;
+};
+
 type DesktopIdentityMarker = {
   appPath: string;
   executablePath: string;
@@ -280,6 +304,7 @@ type PayloadRuntimeAcceptance = {
     health: HealthEvalValue;
     identity: DesktopIdentityMarker;
     launcher: LauncherSnapshot;
+    pptx: PptxExportEvalValue;
     start: MacStartResult;
   };
   identity: DesktopIdentityMarker;
@@ -337,6 +362,7 @@ macDescribe('packaged mac runtime smoke', () => {
     let updateInstall: NonNullable<MacInspectResult['update']> | { skipped: true } = { skipped: true };
     let updateStatus: NonNullable<MacInspectResult['update']> | { skipped: true } = { skipped: true };
     let payloadRuntime: PayloadRuntimeAcceptance | { skipped: true } = { skipped: true };
+    let upgradePersistence: UpgradePersistenceSeed | { skipped: true } = { skipped: true };
     let passed = false;
     try {
       const install = await runToolsPackJson<MacInstallResult>('install');
@@ -407,6 +433,12 @@ macDescribe('packaged mac runtime smoke', () => {
         if (updaterVersion == null || updaterVersion.length === 0) {
           throw new Error('full packaged mac payload smoke requires an update target version');
         }
+        const persistenceInspect = await runToolsPackJson<MacInspectResult>('inspect', [
+          '--expr',
+          upgradePersistenceSeedExpression,
+        ]);
+        const persistence = assertUpgradePersistenceSeed(persistenceInspect.eval?.value);
+        upgradePersistence = persistence;
         const readyUpdate = await waitForUpdaterStatus(
           (status) =>
             status.update?.state === 'downloaded' &&
@@ -445,8 +477,20 @@ macDescribe('packaged mac runtime smoke', () => {
         expect(postUpdateHealth.status).toBe(200);
         expect(postUpdateHealth.health.ok).toBe(true);
         expect(postUpdateHealth.health.version).toBe(updaterVersion);
-        assertLauncherPointer(postUpdateInspect.launcher.active, updaterVersion, 1, 'post-relaunch active');
-        assertLauncherPointer(postUpdateInspect.launcher.lastSuccessful, updaterVersion, 1, 'post-relaunch lastSuccessful');
+        const confirmedGeneration = settledLauncherGeneration(postUpdateInspect.launcher, updaterVersion);
+        if (confirmedGeneration == null) throw new Error('post-update launcher did not settle on the target version');
+        assertLauncherPointer(
+          postUpdateInspect.launcher.active,
+          updaterVersion,
+          confirmedGeneration,
+          'post-relaunch active',
+        );
+        assertLauncherPointer(
+          postUpdateInspect.launcher.lastSuccessful,
+          updaterVersion,
+          confirmedGeneration,
+          'post-relaunch lastSuccessful',
+        );
         const terminalUpdate = await waitForUpdaterStatus(
           (status) => status.update?.state === 'not-available' && status.update.currentVersion === updaterVersion,
           'post-relaunch updater terminal state',
@@ -459,8 +503,10 @@ macDescribe('packaged mac runtime smoke', () => {
         expect(postUpdateInspect.launcher.attempt).toBeNull();
         assertSettledDesktopHandoff(postUpdateInspect.launcher.handoff);
 
-        const pptxInspect = await runToolsPackJson<MacInspectResult>('inspect', ['--expr', pptxExportExpression]);
+        const persistedPptxExpression = existingProjectPptxExportExpression(persistence.projectId);
+        const pptxInspect = await runToolsPackJson<MacInspectResult>('inspect', ['--expr', persistedPptxExpression]);
         const pptx = assertPptxExportEvalValue(pptxInspect.eval?.value);
+        expect(pptx.projectId).toBe(persistence.projectId);
 
         const coldStop = await runToolsPackJson<MacStopResult>('stop');
         started = false;
@@ -476,13 +522,14 @@ macDescribe('packaged mac runtime smoke', () => {
         expect(coldHealth.status).toBe(200);
         expect(coldHealth.health.ok).toBe(true);
         expect(coldHealth.health.version).toBe(updaterVersion);
-        const confirmedGeneration = postUpdateInspect.launcher.active?.generation;
-        if (confirmedGeneration == null) throw new Error('post-update launcher active pointer is missing');
-        assertLauncherPointer(coldInspect.launcher.active, updaterVersion, confirmedGeneration, 'cold-start active');
+        const coldGeneration = settledLauncherGeneration(coldInspect.launcher, updaterVersion);
+        if (coldGeneration == null) throw new Error('cold-start launcher did not settle on the target version');
+        expect(coldGeneration).toBeGreaterThanOrEqual(confirmedGeneration);
+        assertLauncherPointer(coldInspect.launcher.active, updaterVersion, coldGeneration, 'cold-start active');
         assertLauncherPointer(
           coldInspect.launcher.lastSuccessful,
           updaterVersion,
-          confirmedGeneration,
+          coldGeneration,
           'cold-start lastSuccessful',
         );
         expect(coldInspect.launcher.attempt).toBeNull();
@@ -490,11 +537,15 @@ macDescribe('packaged mac runtime smoke', () => {
         const coldIdentity = await readDesktopIdentityMarker();
         assertPayloadDesktopIdentity(coldIdentity, coldInspect.launcher, updaterVersion);
         expect(coldIdentity.pid).not.toBe(identity.pid);
+        const coldPptxInspect = await runToolsPackJson<MacInspectResult>('inspect', ['--expr', persistedPptxExpression]);
+        const coldPptx = assertPptxExportEvalValue(coldPptxInspect.eval?.value);
+        expect(coldPptx.projectId).toBe(persistence.projectId);
         payloadRuntime = {
           coldStart: {
             health: coldHealth,
             identity: coldIdentity,
             launcher: coldInspect.launcher,
+            pptx: coldPptx,
             start: coldStart,
           },
           identity,
@@ -552,6 +603,7 @@ macDescribe('packaged mac runtime smoke', () => {
           status: updateStatus,
           install: updateInstall,
         },
+        upgradePersistence,
       });
       passed = true;
     } finally {
@@ -2056,7 +2108,8 @@ async function waitForHealthyDesktopVersion(expectedVersion: string, previousPid
           value?.status === 200 &&
           value.health.ok === true &&
           value.health.version === expectedVersion &&
-          (previousPid == null || inspect.status.pid !== previousPid)
+          (previousPid == null || inspect.status.pid !== previousPid) &&
+          settledLauncherGeneration(inspect.launcher, expectedVersion) != null
         ) {
           return inspect;
         }
@@ -2227,6 +2280,22 @@ function assertPptxExportEvalValue(value: unknown): PptxExportEvalValue {
   return value as PptxExportEvalValue;
 }
 
+function assertUpgradePersistenceSeed(value: unknown): UpgradePersistenceSeed {
+  if (
+    !isRecord(value) ||
+    typeof value.createdOk !== 'boolean' ||
+    typeof value.createdStatus !== 'number' ||
+    typeof value.projectId !== 'string' ||
+    typeof value.writtenOk !== 'boolean' ||
+    (value.writtenStatus != null && typeof value.writtenStatus !== 'number')
+  ) {
+    throw new Error(`unexpected upgrade persistence seed value: ${formatUnknown(value)}`);
+  }
+  expect(value.createdOk).toBe(true);
+  expect(value.writtenOk).toBe(true);
+  return value as UpgradePersistenceSeed;
+}
+
 function assertSettledDesktopHandoff(value: unknown | null): void {
   if (value == null) return;
   if (!isRecord(value)) throw new Error(`invalid launcher desktop handoff: ${formatUnknown(value)}`);
@@ -2243,6 +2312,25 @@ function assertLauncherPointer(
     generation: expectedGeneration,
     version: expectedVersion,
   });
+}
+
+function settledLauncherGeneration(launcher: LauncherSnapshot, expectedVersion: string): number | null {
+  const active = launcher.active;
+  const lastSuccessful = launcher.lastSuccessful;
+  if (
+    active == null ||
+    lastSuccessful == null ||
+    active.version !== expectedVersion ||
+    lastSuccessful.version !== expectedVersion ||
+    active.generation !== lastSuccessful.generation ||
+    launcher.attempt != null
+  ) {
+    return null;
+  }
+  if (launcher.handoff != null && (!isRecord(launcher.handoff) || launcher.handoff.state !== 'confirmed')) {
+    return null;
+  }
+  return active.generation;
 }
 
 function assertLogPathsAndContent(result: LogsResult): void {
