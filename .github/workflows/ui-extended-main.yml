@@ -1,9 +1,6 @@
 name: ui-extended-main
 
 on:
-  schedule:
-    # 02:00 UTC = 10:00 Asia/Shanghai
-    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       suite:
@@ -176,69 +173,15 @@ jobs:
           retention-days: 7
 
   ui_full:
-    name: Full UI (${{ matrix.name }})
+    name: Full UI (shard ${{ matrix.shard }}/8)
     needs: [p0_runners]
-    if: ${{ github.repository == 'nexu-io/open-design' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite == 'full')) }}
+    if: ${{ github.repository == 'nexu-io/open-design' && github.event_name == 'workflow_dispatch' && inputs.suite == 'full' }}
     runs-on: ${{ fromJSON(needs.p0_runners.outputs.runs_on).ui_hot }}
-    timeout-minutes: 60
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: entry-automation
-            workers: 2
-            files: >-
-              ui/automations-page.test.ts
-              ui/critical-smoke.test.ts
-              ui/entry-chrome-flows.test.ts
-              ui/entry-configuration-flows.test.ts
-              ui/entry-topbar.test.ts
-              ui/home-hero-rail.test.ts
-              ui/settings-memory-routines.test.ts
-          - name: settings-focused
-            workers: 2
-            files: >-
-              ui/amr-login-pill.test.ts
-              ui/amr-logout-requires-relogin.test.ts
-              ui/amr-onboarding.test.ts
-              ui/amr-run-failure-recovery.test.ts
-              ui/chat-todo-autoscroll.test.ts
-              ui/composer-footer-card.test.ts
-              ui/composer-toolbar-alignment.test.ts
-              ui/critique-theater.test.ts
-              ui/design-systems-manager.test.ts
-              ui/diagnostics-export.test.ts
-              ui/home-composer-topbar-stacking.test.ts
-              ui/new-project-ds-picker-clipping.test.ts
-              ui/new-project-ds-picker-stacking.test.ts
-              ui/settings-api-protocol.test.ts
-              ui/settings-connectors-auth-happy-path.test.ts
-              ui/settings-connectors-auth-recovery.test.ts
-              ui/settings-design-systems.test.ts
-              ui/settings-hover-contrast.test.ts
-              ui/settings-local-cli-codex-fallback.test.ts
-              ui/settings-mcp-snippet-chip.test.ts
-              ui/settings-media-providers.test.ts
-              ui/split-resize-scrollbar-hitbox.test.ts
-              ui/updater-popup-stacking.test.ts
-          - name: project-workspace
-            workers: 1
-            files: >-
-              ui/app-design-files.test.ts
-              ui/app-manual-edit.test.ts
-              ui/chat-design-system-switch.test.ts
-              ui/project-file-link-routing.test.ts
-              ui/project-management-flows.test.ts
-              ui/workspace-keyboard-flows.test.ts
-          - name: runtime-restoration
-            workers: 1
-            files: >-
-              ui/api-empty-response.test.ts
-              ui/app-restoration.test.ts
-              ui/app.test.ts
-              ui/preview-run-status.test.ts
-              ui/real-daemon-run.test.ts
-              ui/reload-spurious-failed-run.test.ts
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout
@@ -268,58 +211,17 @@ jobs:
       - name: Clean Playwright state
         run: pnpm -C e2e exec tsx scripts/playwright.ts clean
 
-      # Keep one checkout/install/prebuild per functional owner, but restart the
-      # worker-scoped tools-dev runtimes between shades. A failing lower-priority
-      # serial test must not prevent a later P0 case in the same file from ever
-      # running, so P0 is evaluated first and every later shade uses `always()`.
-      - name: Run full UI P0 domain
+      - name: Run full UI shard
         env:
-          OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}
-        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P0\]'
+          OD_PLAYWRIGHT_FULLY_PARALLEL: "1"
+          OD_PLAYWRIGHT_WORKERS: "2"
+        run: pnpm -C e2e exec playwright test -c playwright.config.ts ui --shard=${{ matrix.shard }}/8
 
-      - name: Upload full UI P0 artifact
+      - name: Upload full UI shard artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p0
-          path: |
-            e2e/ui/reports/playwright-html-report
-            e2e/ui/reports/test-results
-            e2e/ui/reports/results.json
-            e2e/ui/test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Run full UI P1 domain
-        if: ${{ always() }}
-        env:
-          OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}
-        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P1\]'
-
-      - name: Upload full UI P1 artifact
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p1
-          path: |
-            e2e/ui/reports/playwright-html-report
-            e2e/ui/reports/test-results
-            e2e/ui/reports/results.json
-            e2e/ui/test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Run full UI P2 domain
-        if: ${{ always() }}
-        env:
-          OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}
-        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P2\]'
-
-      - name: Upload full UI P2 artifact
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p2
+          name: ui-full-${{ github.run_id }}-shard-${{ matrix.shard }}-of-8
           path: |
             e2e/ui/reports/playwright-html-report
             e2e/ui/reports/test-results

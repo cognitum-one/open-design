@@ -1048,39 +1048,31 @@ process.stdin.on("end", () => {
     expect(workflow).not.toContain("needs.runners.outputs.blacksmith_default");
   });
 
-  it("[P2] keeps functional visual ownership and manual P0 topology explicit", async () => {
+  it("[P2] keeps visual ownership and generic full UI sharding explicit", async () => {
     const playwrightConfig = await readFile(playwrightConfigPath, "utf8");
     const benchmarkWorkflow = await readFile(uiExtendedMainWorkflowPath, "utf8");
     const fullUi = benchmarkWorkflow.slice(benchmarkWorkflow.indexOf("  ui_full:"));
-    const functionalUiFiles = (await readdir(join(e2eRoot, "ui")))
-      .filter((file) => file.endsWith(".test.ts") && !file.startsWith("visual-"))
-      .map((file) => `ui/${file}`)
-      .sort();
     const fullUiFiles = [...fullUi.matchAll(/ui\/[a-z0-9-]+\.test\.ts/g)]
       .map(([file]) => file)
       .sort();
 
     expect(playwrightConfig).toContain("testIgnore: 'visual-*.test.ts'");
+    expect(benchmarkWorkflow).not.toContain("\n  schedule:");
     expect(benchmarkWorkflow).not.toContain("layout:");
     expect(benchmarkWorkflow).toContain("run-ui-group critical-extras");
     expect(benchmarkWorkflow).toContain("Preserve project-runtime domain artifact");
     expect(benchmarkWorkflow).toContain("--grep-invert '@merge-extra'");
     expect(benchmarkWorkflow).toContain("name: project-workspace");
-    expect(fullUi).toContain("name: entry-automation");
-    expect(fullUi).toContain("name: settings-focused");
-    expect(fullUi).toContain("name: runtime-restoration");
     expect(fullUi).toContain("fromJSON(needs.p0_runners.outputs.runs_on).ui_hot");
-    expect(fullUi).toContain("OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}");
-    expect(fullUi).toContain("name: Run full UI P0 domain");
-    expect(fullUi).toContain("name: Run full UI P1 domain");
-    expect(fullUi).toContain("name: Run full UI P2 domain");
-    expect(fullUi).toContain("--grep '\\[P0\\]'");
-    expect(fullUi).toContain("--grep '\\[P1\\]'");
-    expect(fullUi).toContain("--grep '\\[P2\\]'");
-    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p0");
-    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p1");
-    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p2");
-    expect(fullUiFiles).toEqual(functionalUiFiles);
+    expect(fullUi).toContain("shard: [1, 2, 3, 4, 5, 6, 7, 8]");
+    expect(fullUi).toContain('OD_PLAYWRIGHT_FULLY_PARALLEL: "1"');
+    expect(fullUi).toContain('OD_PLAYWRIGHT_WORKERS: "2"');
+    expect(fullUi).toContain("name: Run full UI shard");
+    expect(fullUi).toContain("playwright test -c playwright.config.ts ui --shard=${{ matrix.shard }}/8");
+    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-shard-${{ matrix.shard }}-of-8");
+    expect(fullUi).not.toContain("matrix.files");
+    expect(fullUi).not.toContain("--grep");
+    expect(fullUiFiles).toEqual([]);
   });
 
   it("[P2] resolves CI runner profiles by mode", async () => {
