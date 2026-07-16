@@ -8806,9 +8806,7 @@ export function ProjectView({
               byokSpeechVoice={byokSpeechVoiceOverride}
               onChangeByokSpeechVoice={setByokSpeechVoiceOverride}
               projectMetadata={currentProject.metadata}
-              onProjectMetadataChange={(metadata) => {
-                onProjectChange({ ...project, metadata });
-              }}
+              onProjectMetadataChange={onProjectChange}
               activeWorkspaceContext={activeWorkspaceContext}
               initialWorkspaceContexts={initialWorkspaceContexts}
               workspaceContexts={workspaceContexts}
