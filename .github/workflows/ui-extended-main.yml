@@ -173,7 +173,7 @@ jobs:
           retention-days: 7
 
   ui_full:
-    name: Full UI (shard ${{ matrix.shard }}/24)
+    name: Full UI (shard ${{ matrix.shard }}/12)
     needs: [p0_runners]
     if: ${{ github.repository == 'nexu-io/open-design' && github.event_name == 'workflow_dispatch' && inputs.suite == 'full' }}
     runs-on: ${{ fromJSON(needs.p0_runners.outputs.runs_on).ui_hot }}
@@ -181,7 +181,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
     steps:
       - name: Checkout
@@ -215,13 +215,13 @@ jobs:
         env:
           OD_PLAYWRIGHT_FULLY_PARALLEL: "1"
           OD_PLAYWRIGHT_WORKERS: "1"
-        run: pnpm -C e2e exec playwright test -c playwright.config.ts ui --shard=${{ matrix.shard }}/24
+        run: pnpm -C e2e exec playwright test -c playwright.config.ts ui --shard=${{ matrix.shard }}/12
 
       - name: Upload full UI shard artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ui-full-${{ github.run_id }}-shard-${{ matrix.shard }}-of-24
+          name: ui-full-${{ github.run_id }}-shard-${{ matrix.shard }}-of-12
           path: |
             e2e/ui/reports/playwright-html-report
             e2e/ui/reports/test-results

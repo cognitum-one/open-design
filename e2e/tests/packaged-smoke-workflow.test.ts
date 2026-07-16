@@ -1064,12 +1064,12 @@ process.stdin.on("end", () => {
     expect(benchmarkWorkflow).toContain("--grep-invert '@merge-extra'");
     expect(benchmarkWorkflow).toContain("name: project-workspace");
     expect(fullUi).toContain("fromJSON(needs.p0_runners.outputs.runs_on).ui_hot");
-    expect(fullUi).toContain("shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]");
+    expect(fullUi).toContain("shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]");
     expect(fullUi).toContain('OD_PLAYWRIGHT_FULLY_PARALLEL: "1"');
     expect(fullUi).toContain('OD_PLAYWRIGHT_WORKERS: "1"');
     expect(fullUi).toContain("name: Run full UI shard");
-    expect(fullUi).toContain("playwright test -c playwright.config.ts ui --shard=${{ matrix.shard }}/24");
-    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-shard-${{ matrix.shard }}-of-24");
+    expect(fullUi).toContain("playwright test -c playwright.config.ts ui --shard=${{ matrix.shard }}/12");
+    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-shard-${{ matrix.shard }}-of-12");
     expect(fullUi).not.toContain("matrix.files");
     expect(fullUi).not.toContain("--grep");
     expect(fullUiFiles).toEqual([]);
