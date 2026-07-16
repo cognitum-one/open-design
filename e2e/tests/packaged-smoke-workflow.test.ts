@@ -1071,6 +1071,15 @@ process.stdin.on("end", () => {
     expect(fullUi).toContain("name: runtime-restoration");
     expect(fullUi).toContain("fromJSON(needs.p0_runners.outputs.runs_on).ui_hot");
     expect(fullUi).toContain("OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}");
+    expect(fullUi).toContain("name: Run full UI P0 domain");
+    expect(fullUi).toContain("name: Run full UI P1 domain");
+    expect(fullUi).toContain("name: Run full UI P2 domain");
+    expect(fullUi).toContain("--grep '\\[P0\\]'");
+    expect(fullUi).toContain("--grep '\\[P1\\]'");
+    expect(fullUi).toContain("--grep '\\[P2\\]'");
+    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p0");
+    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p1");
+    expect(fullUi).toContain("name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p2");
     expect(fullUiFiles).toEqual(functionalUiFiles);
   });
 

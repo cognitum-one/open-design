@@ -268,16 +268,58 @@ jobs:
       - name: Clean Playwright state
         run: pnpm -C e2e exec tsx scripts/playwright.ts clean
 
-      - name: Run full UI domain
+      # Keep one checkout/install/prebuild per functional owner, but restart the
+      # worker-scoped tools-dev runtimes between shades. A failing lower-priority
+      # serial test must not prevent a later P0 case in the same file from ever
+      # running, so P0 is evaluated first and every later shade uses `always()`.
+      - name: Run full UI P0 domain
         env:
           OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}
-        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P[012]\]'
+        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P0\]'
 
-      - name: Upload Playwright debug artifact
+      - name: Upload full UI P0 artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ui-full-${{ github.run_id }}-${{ matrix.name }}
+          name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p0
+          path: |
+            e2e/ui/reports/playwright-html-report
+            e2e/ui/reports/test-results
+            e2e/ui/reports/results.json
+            e2e/ui/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Run full UI P1 domain
+        if: ${{ always() }}
+        env:
+          OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}
+        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P1\]'
+
+      - name: Upload full UI P1 artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p1
+          path: |
+            e2e/ui/reports/playwright-html-report
+            e2e/ui/reports/test-results
+            e2e/ui/reports/results.json
+            e2e/ui/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Run full UI P2 domain
+        if: ${{ always() }}
+        env:
+          OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}
+        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P2\]'
+
+      - name: Upload full UI P2 artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-full-${{ github.run_id }}-${{ matrix.name }}-p2
           path: |
             e2e/ui/reports/playwright-html-report
             e2e/ui/reports/test-results
