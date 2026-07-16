@@ -628,6 +628,18 @@ test('[P1] plugin authoring produces a generated-plugin scaffold with action car
   await installBrowserAgentConfig(page, 'codex');
   await gotoEntryHome(page);
   await setBrowserAgentConfig(page, 'codex');
+  // The shortcuts trigger stays disabled while the home plugins list loads
+  // (`pluginsLoading`), and the reload below re-fires that fetch after
+  // gotoEntryHome's own settle already passed. Arm the waiter before
+  // reloading and assert the enabled state explicitly, so a slow or hung
+  // /api/plugins on CI fails with a named cause instead of a 120s opaque
+  // click timeout.
+  const pluginsSettled = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/plugins' &&
+      response.request().method() === 'GET',
+    { timeout: 30_000 },
+  );
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForLoadingToClear(page);
   await setBrowserAgentConfig(page, 'codex');
@@ -635,7 +647,11 @@ test('[P1] plugin authoring produces a generated-plugin scaffold with action car
   await expectBrowserAgentConfig(page, 'codex');
   await dismissPrivacyDialog(page);
 
-  await page.getByTestId('home-hero-shortcuts-trigger').click();
+  const pluginsResponse = await pluginsSettled;
+  expect(pluginsResponse.ok(), 'home /api/plugins list must resolve after reload').toBeTruthy();
+  const shortcutsTrigger = page.getByTestId('home-hero-shortcuts-trigger');
+  await expect(shortcutsTrigger, 'shortcuts trigger must enable once plugins are listed').toBeEnabled({ timeout: 15_000 });
+  await shortcutsTrigger.click();
   await page.getByTestId('home-hero-rail-create-plugin').click();
   await expect(page.getByTestId('home-hero-input')).toHaveText(/Create an Open Design plugin for:/);
 
