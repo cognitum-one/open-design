@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { tmpdir } from "node:os";
@@ -1051,6 +1051,14 @@ process.stdin.on("end", () => {
   it("[P2] keeps functional visual ownership and manual P0 topology explicit", async () => {
     const playwrightConfig = await readFile(playwrightConfigPath, "utf8");
     const benchmarkWorkflow = await readFile(uiExtendedMainWorkflowPath, "utf8");
+    const fullUi = benchmarkWorkflow.slice(benchmarkWorkflow.indexOf("  ui_full:"));
+    const functionalUiFiles = (await readdir(join(e2eRoot, "ui")))
+      .filter((file) => file.endsWith(".test.ts") && !file.startsWith("visual-"))
+      .map((file) => `ui/${file}`)
+      .sort();
+    const fullUiFiles = [...fullUi.matchAll(/ui\/[a-z0-9-]+\.test\.ts/g)]
+      .map(([file]) => file)
+      .sort();
 
     expect(playwrightConfig).toContain("testIgnore: 'visual-*.test.ts'");
     expect(benchmarkWorkflow).not.toContain("layout:");
@@ -1058,6 +1066,12 @@ process.stdin.on("end", () => {
     expect(benchmarkWorkflow).toContain("Preserve project-runtime domain artifact");
     expect(benchmarkWorkflow).toContain("--grep-invert '@merge-extra'");
     expect(benchmarkWorkflow).toContain("name: project-workspace");
+    expect(fullUi).toContain("name: entry-automation");
+    expect(fullUi).toContain("name: settings-focused");
+    expect(fullUi).toContain("name: runtime-restoration");
+    expect(fullUi).toContain("fromJSON(needs.p0_runners.outputs.runs_on).ui_hot");
+    expect(fullUi).toContain("OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}");
+    expect(fullUiFiles).toEqual(functionalUiFiles);
   });
 
   it("[P2] resolves CI runner profiles by mode", async () => {

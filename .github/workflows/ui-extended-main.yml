@@ -25,8 +25,8 @@ concurrency:
 
 jobs:
   p0_runners:
-    name: Resolve P0 runner profiles
-    if: ${{ github.repository == 'nexu-io/open-design' && github.event_name == 'workflow_dispatch' && inputs.suite != 'full' }}
+    name: Resolve UI runner profiles
+    if: ${{ github.repository == 'nexu-io/open-design' }}
     runs-on: ubuntu-24.04
     outputs:
       runs_on: ${{ steps.runners.outputs.runs_on }}
@@ -176,23 +176,88 @@ jobs:
           retention-days: 7
 
   ui_full:
-    name: Full UI regression
+    name: Full UI (${{ matrix.name }})
+    needs: [p0_runners]
     if: ${{ github.repository == 'nexu-io/open-design' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite == 'full')) }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on: ${{ fromJSON(needs.p0_runners.outputs.runs_on).ui_hot }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: entry-automation
+            workers: 2
+            files: >-
+              ui/automations-page.test.ts
+              ui/critical-smoke.test.ts
+              ui/entry-chrome-flows.test.ts
+              ui/entry-configuration-flows.test.ts
+              ui/entry-topbar.test.ts
+              ui/home-hero-rail.test.ts
+              ui/settings-memory-routines.test.ts
+          - name: settings-focused
+            workers: 2
+            files: >-
+              ui/amr-login-pill.test.ts
+              ui/amr-logout-requires-relogin.test.ts
+              ui/amr-onboarding.test.ts
+              ui/amr-run-failure-recovery.test.ts
+              ui/chat-todo-autoscroll.test.ts
+              ui/composer-footer-card.test.ts
+              ui/composer-toolbar-alignment.test.ts
+              ui/critique-theater.test.ts
+              ui/design-systems-manager.test.ts
+              ui/diagnostics-export.test.ts
+              ui/home-composer-topbar-stacking.test.ts
+              ui/new-project-ds-picker-clipping.test.ts
+              ui/new-project-ds-picker-stacking.test.ts
+              ui/settings-api-protocol.test.ts
+              ui/settings-connectors-auth-happy-path.test.ts
+              ui/settings-connectors-auth-recovery.test.ts
+              ui/settings-design-systems.test.ts
+              ui/settings-hover-contrast.test.ts
+              ui/settings-local-cli-codex-fallback.test.ts
+              ui/settings-mcp-snippet-chip.test.ts
+              ui/settings-media-providers.test.ts
+              ui/split-resize-scrollbar-hitbox.test.ts
+              ui/updater-popup-stacking.test.ts
+          - name: project-workspace
+            workers: 1
+            files: >-
+              ui/app-design-files.test.ts
+              ui/app-manual-edit.test.ts
+              ui/chat-design-system-switch.test.ts
+              ui/project-file-link-routing.test.ts
+              ui/project-management-flows.test.ts
+              ui/workspace-keyboard-flows.test.ts
+          - name: runtime-restoration
+            workers: 1
+            files: >-
+              ui/api-empty-response.test.ts
+              ui/app-restoration.test.ts
+              ui/app.test.ts
+              ui/preview-run-status.test.ts
+              ui/real-daemon-run.test.ts
+              ui/reload-spurious-failed-run.test.ts
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
+      - name: Configure CI parallelism
+        uses: ./.github/actions/configure-ci-parallelism
+
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
+        with:
+          runner-labels: ${{ toJSON(fromJSON(needs.p0_runners.outputs.runs_on).ui_hot) }}
 
       - name: Setup Playwright
         uses: ./.github/actions/setup-playwright
         with:
           package-json-path: e2e/package.json
           install-command: pnpm -C e2e exec playwright install --with-deps chromium
+          runner-labels: ${{ toJSON(fromJSON(needs.p0_runners.outputs.runs_on).ui_hot) }}
 
       - name: Prebuild workspace type declarations
         run: |
@@ -203,14 +268,16 @@ jobs:
       - name: Clean Playwright state
         run: pnpm -C e2e exec tsx scripts/playwright.ts clean
 
-      - name: Run full UI
-        run: pnpm -C e2e test:ui
+      - name: Run full UI domain
+        env:
+          OD_PLAYWRIGHT_WORKERS: ${{ matrix.workers }}
+        run: pnpm -C e2e exec playwright test -c playwright.config.ts ${{ matrix.files }} --grep '\[P[012]\]'
 
       - name: Upload Playwright debug artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ui-full-${{ github.run_id }}
+          name: ui-full-${{ github.run_id }}-${{ matrix.name }}
           path: |
             e2e/ui/reports/playwright-html-report
             e2e/ui/reports/test-results
