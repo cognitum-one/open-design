@@ -211,7 +211,9 @@ function artifactPreviewFrame(page: Page) {
 }
 
 test.describe('new project modal from left rail', () => {
-  test.describe.configure({ mode: 'serial', timeout: 60_000 });
+  // Timeout-only configure: both tests open the modal themselves against
+  // stubbed data; serial would make the pair atomic within one CI shard.
+  test.describe.configure({ timeout: 60_000 });
 
   test('[P1] new project tabs switch visible form sections and preserve drafts', async ({ page }) => {
     await stubEmptyProjectsNewProjectData(page);

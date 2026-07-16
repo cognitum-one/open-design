@@ -34,7 +34,11 @@ function artifactPreviewFrame(page: Page) {
   return page.frameLocator(ACTIVE_ARTIFACT_PREVIEW_SELECTOR);
 }
 
-test.describe.configure({ mode: 'serial' });
+// No serial mode: every test performs its full setup in beforeEach (config
+// reset, localStorage seed, fake agent config) and creates its own project,
+// so tests hold order-independent. Keeping the file splittable matters for
+// the CI shard matrix — a serial group is atomic within one shard and this
+// file's chain alone would floor the UI wall time.
 
 test.beforeAll(async () => {
   fakeRuntimes = await createFakeAgentRuntimes();
