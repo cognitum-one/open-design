@@ -797,12 +797,32 @@ async function sendPrompt(page: Page, prompt: string) {
   await input.fill(prompt);
   await expect(input).toHaveText(prompt);
   await expect(sendButton).toBeEnabled();
-  const [response] = await Promise.all([
-    page.waitForResponse(isCreateRunResponse, { timeout: T.medium }),
-    sendButton.click(),
-  ]);
-  expect(response.ok()).toBeTruthy();
-  return response;
+  // Split the diagnosis on timeout: track whether the create-run POST was
+  // ever issued, so a failure distinguishes "the click never produced a
+  // request" (composer/overlay problem) from "the daemon did not answer in
+  // time" (runtime problem).
+  let createRunRequestSent = false;
+  const markRequest = (request: Request) => {
+    if (isCreateRunRequest(request)) createRunRequestSent = true;
+  };
+  page.on('request', markRequest);
+  try {
+    const [response] = await Promise.all([
+      page.waitForResponse(isCreateRunResponse, { timeout: T.medium }),
+      sendButton.click(),
+    ]);
+    expect(response.ok()).toBeTruthy();
+    return response;
+  } catch (error) {
+    throw new Error(
+      `sendPrompt did not observe a create-run response (POST /api/runs ${
+        createRunRequestSent ? 'was sent but not answered in time' : 'was never issued'
+      })`,
+      { cause: error },
+    );
+  } finally {
+    page.off('request', markRequest);
+  }
 }
 
 async function sendPromptAndReloadBeforeCreateResponse(page: Page, prompt: string) {

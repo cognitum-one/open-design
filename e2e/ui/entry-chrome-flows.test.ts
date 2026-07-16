@@ -507,8 +507,11 @@ test('[P1] disabled design systems are filtered from entry creation surfaces', a
   const modal = page.getByTestId('new-project-modal');
   await expect(modal).toBeVisible();
   await modal.getByTestId('design-system-trigger').click();
-  await expect(modal.getByRole('option', { name: /Agentic/i })).toBeVisible();
-  await expect(modal.getByRole('option', { name: /Airbnb/i })).toHaveCount(0);
+  // The picker popover renders through a document.body portal (so short
+  // viewports cannot clip it), so its options live outside the modal subtree.
+  const modalPicker = page.locator('.ds-picker-popover');
+  await expect(modalPicker.getByRole('option', { name: /Agentic/i })).toBeVisible();
+  await expect(modalPicker.getByRole('option', { name: /Airbnb/i })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await expect(modal).toHaveCount(0);
@@ -1061,7 +1064,10 @@ test('[P1] home starters can jump into plugin creation through the registry brow
   });
 
   await gotoEntryHome(page);
-  await page.getByTestId('plugins-home-browse-registry').click();
+  // The browse link lives inside the first-run reveal container; reveal it
+  // first or the collapsed overlay intercepts the click.
+  const home = await revealHomeTemplates(page);
+  await home.getByTestId('plugins-home-browse-registry').click();
   await expect(page).toHaveURL(/\/plugins$/);
   await expect(page.locator('h1').filter({ hasText: 'Plugins' })).toBeVisible();
   await page.getByTestId('plugins-create-button').click();
@@ -2318,8 +2324,21 @@ test('[P1] rail can be collapsed again on coarse-pointer / non-hover devices', a
 });
 
 async function gotoEntryHome(page: Page) {
+  // The home surface re-renders (and can remount transient UI such as the
+  // templates reveal container or an open details modal) when the async
+  // projects list resolves. Arm the waiter before navigating and hold until
+  // that fetch settles so tests never interact inside the remount window.
+  const projectsSettled = page
+    .waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/projects' &&
+        response.request().method() === 'GET',
+      { timeout: 10_000 },
+    )
+    .catch(() => null);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByText('Loading Open Design…').waitFor({ state: 'hidden', timeout: T.long });
+  await projectsSettled;
   const privacyDialog = page.getByRole('dialog').filter({ hasText: 'Help us improve Open Design' });
   if (await privacyDialog.isVisible()) {
     await privacyDialog.getByRole('button', { name: /I get it|not now|got it|don't share/i }).click();
@@ -2340,21 +2359,41 @@ async function gotoEntryHome(page: Page) {
 async function revealHomeTemplates(page: Page) {
   const home = page.locator('[data-testid="entry-view-home"][data-active="true"]');
   const section = home.getByTestId('plugins-home-section');
-  const hint = home.getByTestId('home-templates-hint');
-  if (await hint.count()) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      if (await home.locator('.home-templates-reveal').evaluate((node) => node.classList.contains('is-revealed')).catch(() => false)) break;
-      await page.mouse.wheel(0, 900);
-      await page.waitForTimeout(120);
+  const reveal = home.locator('.home-templates-reveal');
+  const isRevealed = () =>
+    reveal.evaluate((node) => node.classList.contains('is-revealed')).catch(() => false);
+  // `HomeTemplatesReveal` keeps its revealed flag in component state, and the
+  // async projects fetch can remount it (or flip `enabled`) after we reveal,
+  // silently collapsing the gallery again. Reveal, then require the revealed
+  // state to survive a settle window before trusting it; retry on regression.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (!(await reveal.count())) {
+      // Looks like pass-through mode, but the wrapper can mount late (React
+      // may still be processing the projects response and flip `enabled`
+      // right after we look). Hold one settle window and re-check; only a
+      // stable absence is really pass-through.
+      await page.waitForTimeout(600);
+      if (!(await reveal.count())) break;
+      continue;
     }
-    if (!(await home.locator('.home-templates-reveal').evaluate((node) => node.classList.contains('is-revealed')).catch(() => false))) {
-      await hint.scrollIntoViewIfNeeded();
-      await expect(hint).toBeVisible();
-      await hint.click();
+    const hint = home.getByTestId('home-templates-hint');
+    if (!(await isRevealed())) {
+      for (let wheel = 0; wheel < 3 && !(await isRevealed()); wheel += 1) {
+        await page.mouse.wheel(0, 900);
+        await page.waitForTimeout(120);
+      }
+      if (!(await isRevealed()) && (await hint.count())) {
+        await hint.scrollIntoViewIfNeeded();
+        await expect(hint).toBeVisible();
+        await hint.click();
+      }
     }
-    await expect(home.locator('.home-templates-reveal')).toHaveClass(/is-revealed/);
+    await page.waitForTimeout(600);
+    if (await isRevealed()) break;
+  }
+  if (await reveal.count()) {
+    await expect(reveal).toHaveClass(/is-revealed/);
     await expect(home.locator('.home-templates-reveal__body')).not.toHaveAttribute('inert', '');
-    await page.waitForTimeout(450);
   }
   await expect(section).toBeVisible();
   await page.locator('.entry-main--scroll').evaluate((node) => {
@@ -2369,12 +2408,14 @@ async function openHomePluginDetails(
   name: RegExp,
   scopedHome = page.locator('[data-testid="entry-view-home"][data-active="true"]'),
 ) {
-  let home = scopedHome;
-  let card = home.locator(`article.plugins-home__card[data-plugin-id="${pluginId}"]`).first();
-  if (!(await card.isVisible().catch(() => false))) {
-    home = await revealHomeTemplates(page);
-    card = home.locator(`article.plugins-home__card[data-plugin-id="${pluginId}"]`).first();
-  }
+  // Always walk the reveal path (it is idempotent when the templates are
+  // already expanded): a card inside the collapsed first-run reveal container
+  // still reports isVisible(), so gating the reveal on card visibility leaves
+  // the card without an actionable click point whenever the previous test in
+  // the worker left the home in its collapsed hero state.
+  await revealHomeTemplates(page);
+  const home = scopedHome;
+  const card = home.locator(`article.plugins-home__card[data-plugin-id="${pluginId}"]`).first();
   await expect(card).toBeVisible();
   await clickCardAtActionablePoint(page, card);
   const dialog = page.getByRole('dialog').filter({ hasText: name });
