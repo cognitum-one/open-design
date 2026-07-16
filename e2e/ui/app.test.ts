@@ -1058,7 +1058,9 @@ async function runQuestionFormSubmitPersistenceFlow(
   const firstRunBody = (await firstRunRequestPromise).postDataJSON() as Record<string, unknown>;
   expectScenarioRunRequest(firstRunBody, entry);
 
-  const form = page.locator('.question-form').first();
+  const panel = page.getByTestId('questions-panel');
+  await expect(panel).toBeVisible();
+  const form = panel.locator('.question-form');
   await expect(form).toBeVisible();
 
   const toneQuestion = form.locator('.qf-field', {
@@ -1067,11 +1069,14 @@ async function runQuestionFormSubmitPersistenceFlow(
   await toneQuestion.locator('label.qf-chip', { has: page.getByText('Editorial / magazine') }).click();
   await toneQuestion.locator('label.qf-chip', { has: page.getByText('Modern minimal') }).click();
 
-  await form.getByRole('button', { name: 'Send answers' }).click();
+  const continueButton = panel.getByRole('button', { name: /^Continue$/i });
+  await expect(continueButton).toBeEnabled();
+  await continueButton.click();
 
   await expect(page.getByText('[form answers — discovery]', { exact: false })).toBeVisible();
-  await expect(form.getByText('answered', { exact: true })).toBeVisible();
-  await expect(form.getByText('Answers sent — agent is using these for the rest of the session.')).toBeVisible();
+  const answeredBanner = page.getByTestId('questions-banner');
+  await expect(answeredBanner).toHaveAttribute('data-answered', 'true');
+  await expect(answeredBanner).toBeDisabled();
 
   const { projectId, conversationId } = await getCurrentProjectContext(page);
   const messagesResponse = await page.request.get(
@@ -1081,13 +1086,14 @@ async function runQuestionFormSubmitPersistenceFlow(
   const { messages } = (await messagesResponse.json()) as { messages: Array<{ role: string; content: string }> };
   const formAnswerMessage = messages.find((message) => message.role === 'user' && message.content.includes('[form answers — discovery]'));
   expect(formAnswerMessage).toBeTruthy();
+  expect(formAnswerMessage?.content).toContain('Editorial / magazine');
+  expect(formAnswerMessage?.content).toContain('Modern minimal');
 
   await page.reload();
-  const restoredForm = page.locator('.question-form').first();
-  await expect(restoredForm).toBeVisible();
-  await expect(restoredForm.getByText('answered', { exact: true })).toBeVisible();
-  await expect(restoredForm.locator('input[type="checkbox"]:checked')).toHaveCount(2);
-  await expect(restoredForm.getByRole('button', { name: 'Send answers' })).toHaveCount(0);
+  const restoredBanner = page.getByTestId('questions-banner');
+  await expect(restoredBanner).toHaveAttribute('data-answered', 'true');
+  await expect(restoredBanner).toBeDisabled();
+  await expect(page.getByText('[form answers — discovery]', { exact: false })).toBeVisible();
 }
 
 async function runGenerationDoesNotCreateExtraFileFlow(

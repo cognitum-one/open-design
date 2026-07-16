@@ -1650,12 +1650,16 @@ test('[P1] project handoff AMR website link carries attribution from the CLI tab
   const menu = await openHandoffCliTab(page);
   const amrLink = menu.locator('.handoff-amr-link');
   await expect(amrLink).toBeVisible();
+  await expect(amrLink).toHaveAttribute('target', '_blank');
+  await expect(amrLink).toHaveAttribute('rel', 'noreferrer');
 
-  const popupPromise = page.waitForEvent('popup');
+  await amrLink.evaluate((link) => {
+    link.addEventListener('click', (event) => event.preventDefault(), { once: true });
+  });
   await amrLink.click();
-  const popup = await popupPromise;
-  const url = new URL(popup.url());
-  await popup.close();
+  const href = await amrLink.getAttribute('href');
+  expect(href).toBeTruthy();
+  const url = new URL(href!);
 
   expect(url.searchParams.get('od_origin')).toBe('open_design');
   expect(url.searchParams.get('od_entry_source')).toBe('handoff_amr_website');

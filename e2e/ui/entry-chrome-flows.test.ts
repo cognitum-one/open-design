@@ -371,7 +371,8 @@ test('[P1] home view exposes the redesigned hero, recent projects, and starters'
   await expect(page.getByTestId('recent-projects-view-all')).toBeVisible();
   await expect(home.getByTestId('plugins-home-section')).toBeVisible();
   await expect(home.getByTestId('plugins-home-browse-registry')).toBeVisible();
-  await expect(home.getByTestId('plugins-home-pill-category-all')).toHaveAttribute('aria-selected', 'true');
+  await expect(home.getByTestId('plugins-home-pill-category-all')).toHaveCount(0);
+  await expect(home.getByTestId('plugins-home-pill-category-deck')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('home-hero')).toBeVisible();
   await expect(page.getByTestId('home-templates-hint')).toHaveCount(0);
   await expect(page.getByTestId('entry-nav-home')).toHaveAttribute('aria-current', 'page');
@@ -977,19 +978,12 @@ test('[P2] home starters search and facet filters narrow the visible gallery', a
   await gotoEntryHome(page);
 
   const home = await revealHomeTemplates(page);
-  await expect(home.getByTestId('plugins-home-pill-category-all')).toContainText('4');
-
-  await home.getByTestId('plugins-home-pill-category-deck').click({ force: true });
+  const deckCategory = home.getByTestId('plugins-home-pill-category-deck');
+  await expect(deckCategory).toHaveAttribute('aria-selected', 'true');
   await expect(home.locator('[data-plugin-id="deck-writer"]')).toBeVisible();
   await expect(home.locator('[data-plugin-id="figma-importer"]')).toHaveCount(0);
   await expect(home.locator('[data-plugin-id="localized-plugin"]')).toHaveCount(0);
   await expect(home.locator('[data-plugin-id="hyperframes-video"]')).toHaveCount(0);
-
-  await home.getByTestId('plugins-home-pill-category-all').click({ force: true });
-  await expect(home.locator('[data-plugin-id="figma-importer"]')).toBeVisible();
-  await expect(home.locator('[data-plugin-id="localized-plugin"]')).toBeVisible();
-  await expect(home.locator('[data-plugin-id="hyperframes-video"]')).toBeVisible();
-  await expect(home.locator('[data-plugin-id="deck-writer"]')).toBeVisible();
 
   const search = home.getByTestId('plugins-home-search');
   await search.fill('Deck Writer');
@@ -997,7 +991,7 @@ test('[P2] home starters search and facet filters narrow the visible gallery', a
   await expect(home.locator('[data-plugin-id="localized-plugin"]')).toHaveCount(0);
   await expect(home.locator('[data-plugin-id="hyperframes-video"]')).toHaveCount(0);
   await home.getByTestId('plugins-home-search-clear').click({ force: true });
-  await expect(home.locator('[data-plugin-id="localized-plugin"]')).toBeVisible();
+  await expect(home.locator('[data-plugin-id="deck-writer"]')).toBeVisible();
 });
 
 test('[P1] home starters category tabs and subcategory tabs switch the gallery slice', async ({ page }) => {
@@ -1012,9 +1006,10 @@ test('[P1] home starters category tabs and subcategory tabs switch the gallery s
   await gotoEntryHome(page);
   const home = await revealHomeTemplates(page);
 
-  await expect(home.getByTestId('plugins-home-pill-category-all')).toContainText('8');
-  await expect(home.locator('[data-plugin-id="facet-landing-prototype"]')).toBeVisible();
-  await expect(home.locator('[data-plugin-id="facet-audio"]')).toBeVisible();
+  await expect(home.getByTestId('plugins-home-pill-category-all')).toHaveCount(0);
+  await expect(home.getByTestId('plugins-home-pill-category-deck')).toHaveAttribute('aria-selected', 'true');
+  await expect(home.locator('[data-plugin-id="facet-deck"]')).toBeVisible();
+  await expect(home.locator('[data-plugin-id="facet-landing-prototype"]')).toHaveCount(0);
 
   const categoryCases = [
     ['prototype', 'facet-landing-prototype', 'facet-deck'],
@@ -1036,12 +1031,10 @@ test('[P1] home starters category tabs and subcategory tabs switch the gallery s
     await expect(home.locator(`[data-plugin-id="${hiddenId}"]`)).toHaveCount(0);
   }
 
-  await home.getByTestId('plugins-home-pill-category-all').click({ force: true });
-  await expect(home.getByTestId('plugins-home-pill-category-all')).toHaveAttribute('aria-selected', 'true');
-  await expect(home.locator('[data-plugin-id="facet-landing-prototype"]')).toBeVisible();
-  await expect(home.locator('[data-plugin-id="facet-audio"]')).toBeVisible();
-
-  await home.getByTestId('plugins-home-pill-category-prototype').click({ force: true });
+  const prototypeCategory = home.getByTestId('plugins-home-pill-category-prototype');
+  await prototypeCategory.scrollIntoViewIfNeeded();
+  await expect(prototypeCategory).toBeVisible();
+  await prototypeCategory.click();
   await expect(home.getByTestId('plugins-home-row-subcategory-prototype')).toBeVisible();
   await home.getByTestId('plugins-home-pill-subcategory-prototype-landing-marketing').click({ force: true });
   await expect(home.getByTestId('plugins-home-pill-subcategory-prototype-landing-marketing')).toHaveAttribute('aria-selected', 'true');
@@ -1091,7 +1084,6 @@ test('[P2] home starters search can enter a no-results state and recover with cl
   // plugins views (both stay mounted), so scope to the home view to keep these
   // strict-mode locators unambiguous.
   const home = await revealHomeTemplates(page);
-  await home.getByTestId('plugins-home-pill-category-all').click({ force: true });
   const search = home.getByTestId('plugins-home-search');
   await search.click({ force: true });
   await search.fill('no-such-starter');
@@ -1682,7 +1674,6 @@ test('[P1] home starters Use plugin from the details modal applies the plugin to
   });
 
   await gotoEntryHome(page);
-  await page.locator('article.plugins-home__card[data-plugin-id="detail-use-plugin"]').hover();
   await page.getByTestId('plugins-home-details-detail-use-plugin').click({ force: true });
 
   const dialog = page.getByRole('dialog', { name: /Detail Use Plugin preview/i });

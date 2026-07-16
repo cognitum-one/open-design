@@ -1,6 +1,6 @@
 import { expect, test } from '@/playwright/suite';
 import type { Page } from '@playwright/test';
-import { routeAgents } from '@/playwright/mock-factory';
+import { routeAgents, suppressWhatsNew } from '@/playwright/mock-factory';
 import { T } from '@/timeouts';
 
 test.describe.configure({ timeout: T.xlong });
@@ -361,6 +361,7 @@ async function gotoEntryHome(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await suppressWhatsNew(page);
   await page.addInitScript(({ key, value }) => {
     window.localStorage.clear();
     window.sessionStorage.clear();
