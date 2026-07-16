@@ -760,8 +760,20 @@ async function openProjectFromProjectsView(page: Page, projectId: string) {
 }
 
 async function gotoEntryHome(page: Page) {
+  // Hold until the async projects list settles: its late resolution re-renders
+  // the home hero (recent-projects strip mounting), which keeps controls like
+  // the shortcuts trigger unstable under CI timing. Arm before navigating.
+  const projectsSettled = page
+    .waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/projects' &&
+        response.request().method() === 'GET',
+      { timeout: 10_000 },
+    )
+    .catch(() => null);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await waitForLoadingToClear(page);
+  await projectsSettled;
   const privacyDialog = page.getByRole('dialog').filter({ hasText: 'Help us improve Open Design' });
   if (await privacyDialog.isVisible()) {
     await privacyDialog.getByRole('button', { name: /I get it|not now|got it|don't share/i }).click();
