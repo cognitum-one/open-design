@@ -521,7 +521,7 @@ test('[P1] design files page keeps the current single-file actions and context h
 
   await expect(page.getByTestId('design-files-upload-trigger')).toBeVisible();
   await expect(page.getByRole('button', { name: /new sketch/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /paste/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /create document/i })).toBeVisible();
 
   await expect(page.getByRole('button', { name: /filter by kind/i })).toHaveCount(0);
   await expect(page.getByTestId('design-files-batch-delete')).toHaveCount(0);

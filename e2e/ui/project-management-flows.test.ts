@@ -1746,7 +1746,7 @@ test('[P1] project detail workspace keeps design file tabs and preview controls 
   const fileTab = tabBySuffix(page, uploadedName);
   await expect(fileTab).toBeVisible();
   await expect(fileTab).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('tab', { name: 'Design Files' })).toBeVisible();
+  await expect(page.getByTestId('workspace-pages-menu-trigger')).toBeVisible();
 
   await openUploadedHtmlArtifactPreview(page, uploadedName);
 
@@ -2692,7 +2692,15 @@ test('[P2] projects kanban view groups cards into status columns', async ({ page
   await expect(page.locator('.design-kanban-card.status-awaiting_input')).toHaveCount(1);
   await expect(page.locator('.design-kanban-card.status-succeeded')).toHaveCount(1);
   await expect(page.locator('.design-kanban-card.status-failed')).toHaveCount(1);
-  await expect(page.locator('.design-kanban-empty')).toHaveCount(1);
+  const kanbanColumns = page.locator('.design-kanban-col');
+  await expect(kanbanColumns).toHaveCount(7);
+  await expect(
+    kanbanColumns.filter({ hasText: 'Incomplete' }).locator('.design-kanban-empty'),
+  ).toHaveCount(1);
+  await expect(
+    kanbanColumns.filter({ hasText: 'Canceled' }).locator('.design-kanban-empty'),
+  ).toHaveCount(1);
+  await expect(page.locator('.design-kanban-empty')).toHaveCount(2);
 
   await expect(page.locator('.design-kanban-card.status-running')).toContainText('Running Card');
   await expect(page.locator('.design-kanban-card.status-awaiting_input')).toContainText(

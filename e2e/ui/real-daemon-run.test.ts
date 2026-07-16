@@ -1,6 +1,7 @@
 import { expect, test } from '@/playwright/suite';
 import { openNewProjectModal as openNewProjectModalFromProjects } from '@/playwright/rail';
 import { runErrorCard } from '@/playwright/chat';
+import { openAllProjectFiles } from '@/playwright/workspace';
 import type { Locator, Page, Request, Response } from '@playwright/test';
 import {
   createFakeAgentRuntimes,
@@ -667,6 +668,9 @@ test('[P1] plugin authoring produces a generated-plugin scaffold with action car
   await expect(page.getByTestId('assistant-plugin-publish-generated-plugin')).toBeVisible();
   await expect(page.getByTestId('assistant-plugin-contribute-generated-plugin')).toBeVisible();
 
+  // The run auto-opens the produced file tab; the plugin-folder card lives in
+  // the Design Files ("All project files") view, so navigate there first.
+  await openAllProjectFiles(page);
   await expect(page.getByTestId('design-plugin-folder-generated-plugin')).toBeVisible();
   await expect(page.getByTestId('design-plugin-folder-install-generated-plugin')).toBeVisible();
   await expect(page.getByTestId('design-plugin-folder-publish-generated-plugin')).toBeVisible();
@@ -793,12 +797,9 @@ async function sendPrompt(page: Page, prompt: string) {
   await input.fill(prompt);
   await expect(input).toHaveText(prompt);
   await expect(sendButton).toBeEnabled();
-  const response = await Promise.race([
-    page.waitForResponse(isCreateRunResponse, { timeout: 10_000 }),
-    (async () => {
-      await sendButton.click();
-      return page.waitForResponse(isCreateRunResponse, { timeout: 10_000 });
-    })(),
+  const [response] = await Promise.all([
+    page.waitForResponse(isCreateRunResponse, { timeout: T.medium }),
+    sendButton.click(),
   ]);
   expect(response.ok()).toBeTruthy();
   return response;

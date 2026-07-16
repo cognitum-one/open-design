@@ -1371,8 +1371,9 @@ test('[P1] first-run home keeps community templates collapsed until the hint is 
   await expect(revealBody).toHaveAttribute('aria-hidden', 'false');
   await expect(home.getByTestId('plugins-home-section')).toBeVisible();
   await expect(home.getByTestId('plugins-home-browse-registry')).toBeVisible();
-  await expect(home.getByTestId('plugins-home-pill-category-all')).toHaveAttribute('aria-selected', 'true');
-  await expect(home.locator('article.plugins-home__card[data-plugin-id="example-web-prototype"]')).toBeVisible();
+  await expect(home.getByTestId('plugins-home-pill-category-all')).toHaveCount(0);
+  await expect(home.getByTestId('plugins-home-pill-category-live-artifact')).toHaveAttribute('aria-selected', 'true');
+  await expect(home.locator('article.plugins-home__card[data-plugin-id="example-live-artifact"]')).toBeVisible();
 });
 
 test('[P1] blank project entry creates an empty project without prompt or template metadata', async ({ page }) => {
@@ -1482,9 +1483,7 @@ test('[P1] home hero example presets update the composer input for prototype and
 
   await page.getByTestId('home-hero-rail-prototype').click();
   await expect(page.getByTestId('home-hero-plugin-presets')).toBeVisible();
-  await page
-    .locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="example-web-prototype"]')
-    .click();
+  await useExamplePreset(page, 'example-web-prototype');
   await expect(input).toHaveText(
     'Build a high-fidelity web prototype for product evaluators using the active project design system from the bundled web prototype seed.',
   );
@@ -1492,9 +1491,7 @@ test('[P1] home hero example presets update the composer input for prototype and
   await clearActiveChip(page);
   await page.getByTestId('home-hero-rail-live-artifact').click();
   await expect(page.getByTestId('home-hero-plugin-presets')).toBeVisible();
-  await page
-    .locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="image-template-notion-team-dashboard-live-artifact"]')
-    .click();
+  await useExamplePreset(page, 'image-template-notion-team-dashboard-live-artifact');
   await expect(input).toHaveText('Create a live Notion dashboard artifact.');
 });
 
@@ -1506,7 +1503,7 @@ test('[P1] home hero example preset Use button applies the template without rely
 
   await page.getByTestId('home-hero-rail-prototype').click();
   await expect(page.getByTestId('home-hero-plugin-presets')).toBeVisible();
-  await page.getByTestId('home-hero-plugin-preset-use-example-web-prototype').click();
+  await useExamplePreset(page, 'example-web-prototype');
 
   await expect(page.getByTestId('home-hero-active-plugin')).toBeVisible();
   await expect(input).toHaveText(
@@ -1674,7 +1671,7 @@ test('[P1] home hero preset inline Use and Duplicate actions work from the templ
   const card = page.locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="example-web-prototype"]');
   await card.hover();
 
-  await page.getByTestId('home-hero-plugin-preset-use-example-web-prototype').click();
+  await useExamplePreset(page, 'example-web-prototype');
   await expect(page.getByTestId('home-hero-input')).toHaveText(
     'Build a high-fidelity web prototype for product evaluators using the active project design system from the bundled web prototype seed.',
   );
@@ -1695,9 +1692,7 @@ test('[P1] home hero deck example preset updates the composer input', async ({ p
 
   await page.getByTestId('home-hero-rail-deck').click();
   await expect(page.getByTestId('home-hero-plugin-presets')).toBeVisible();
-  await page
-    .locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="example-simple-deck"]')
-    .click();
+  await useExamplePreset(page, 'example-simple-deck');
   await expect(input).toHaveText(
     'Create a pitch deck for decision makers about quarterly review with 10-15 pages. Speaker notes: include speaker notes. Use the active project design system.',
   );
@@ -1744,9 +1739,7 @@ test('[P1] after clearing one mode, selecting another example updates the compos
 
   await page.getByTestId('home-hero-rail-prototype').click();
   await expect(page.getByTestId('home-hero-plugin-presets')).toBeVisible();
-  await page
-    .locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="example-web-prototype"]')
-    .click();
+  await useExamplePreset(page, 'example-web-prototype');
   await expect(input).toHaveText(
     'Build a high-fidelity web prototype for product evaluators using the active project design system from the bundled web prototype seed.',
   );
@@ -1756,9 +1749,7 @@ test('[P1] after clearing one mode, selecting another example updates the compos
   await page.getByTestId('home-hero-rail-live-artifact').click();
   await expect(page.getByTestId('home-hero-plugin-presets')).toBeVisible();
   await expect(page.getByTestId('home-hero-footer-option-designSystem')).toHaveCount(0);
-  await page
-    .locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="image-template-notion-team-dashboard-live-artifact"]')
-    .click();
+  await useExamplePreset(page, 'image-template-notion-team-dashboard-live-artifact');
   await expect(input).toHaveText('Create a live Notion dashboard artifact.');
 });
 
@@ -1769,14 +1760,10 @@ test('[P1] selecting another example updates the composer input', async ({ page 
 
   await page.getByTestId('home-hero-rail-live-artifact').click();
   await expect(page.getByTestId('home-hero-plugin-presets')).toBeVisible();
-  await page
-    .locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="image-template-notion-team-dashboard-live-artifact"]')
-    .click();
+  await useExamplePreset(page, 'image-template-notion-team-dashboard-live-artifact');
   await expect(input).toHaveText('Create a live Notion dashboard artifact.');
 
-  await page
-    .locator('[data-testid="home-hero-plugin-preset"][data-plugin-id="example-live-artifact"]')
-    .click();
+  await useExamplePreset(page, 'example-live-artifact');
   await expect(input).toHaveText('Create refreshable, auditable Open Design artifacts.');
 });
 
@@ -1785,6 +1772,16 @@ async function expectChipSelection(page: Page, chipId: string, _label: string) {
   await expect(chip).toBeEnabled();
   await chip.click();
   await expect(page.getByTestId('home-hero-template-reset')).toBeVisible();
+}
+
+async function useExamplePreset(page: Page, pluginId: string) {
+  const card = page.locator(
+    `[data-testid="home-hero-plugin-preset"][data-plugin-id="${pluginId}"]`,
+  );
+  await card.hover();
+  const useButton = page.getByTestId(`home-hero-plugin-preset-use-${pluginId}`);
+  await expect(useButton).toBeVisible();
+  await useButton.click();
 }
 
 function activeHeroChip(page: Page) {

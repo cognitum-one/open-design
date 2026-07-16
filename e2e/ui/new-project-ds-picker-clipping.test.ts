@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { expect, test } from '@/playwright/suite';
 import { openNewProjectModal } from '@/playwright/rail';
 import { routeAgents } from '../lib/playwright/mock-factory.js';
 
@@ -140,7 +140,7 @@ test('[P1] design system dropdown is not clipped by the modal body', async ({ pa
 test('[P1] design system dropdown stays within a very short viewport (both sides tight)', async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 360 });
+  await page.setViewportSize({ width: 1280, height: 320 });
   await page.goto('/');
   await openNewProjectPanel(page);
   await page.getByTestId('new-project-tab-prototype').click();
