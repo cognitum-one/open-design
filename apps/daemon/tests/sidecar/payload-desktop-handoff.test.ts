@@ -176,7 +176,10 @@ describe("legacy payload desktop handoff", () => {
       expect(spawn).toHaveBeenCalledOnce();
       expect(launchedEnv).not.toHaveProperty("ELECTRON_RUN_AS_NODE");
       expect(launchedEnv).not.toHaveProperty("OD_SIDECAR_BASE");
-      expect(launchedEnv).toMatchObject({ PATH: "/usr/bin" });
+      expect(launchedEnv).toMatchObject({
+        OD_PACKAGED_NAMESPACE_BASE_ROOT: join(root, "namespaces"),
+        PATH: "/usr/bin",
+      });
       expect(parseLauncherAfterQuitArgs(launchedArgs)).toEqual({ targetPid: 4321, timeoutMs: 60_000 });
       expect(parseLauncherHandoffResumeArgs(launchedArgs)).toEqual({
         handoffId: "f5d4a712-8ba9-4c28-bcad-6dbed5db2d7c",
@@ -195,18 +198,24 @@ describe("legacy payload desktop handoff", () => {
         namespace,
         schemaVersion: LAUNCHER_SCHEMA_VERSION,
       })}\n`);
-      await writeFile(launcherPaths.attemptsPath, `${JSON.stringify({
-        channel: "beta",
-        generation: 2,
-        namespace,
-        schemaVersion: LAUNCHER_SCHEMA_VERSION,
-        version: "1.2.3-beta.5",
-      })}\n`);
+      await rm(launcherPaths.attemptsPath, { force: true });
       await writeFile(launcherPaths.handoffPath, `${JSON.stringify({
         ...JSON.parse(await readFile(launcherPaths.handoffPath, "utf8")),
         source: { generation: 2, version: "1.2.3-beta.5" },
         state: "confirmed",
         target: { generation: 2, version: "1.2.3-beta.5" },
+      })}\n`);
+      await writeFile(join(runtimeRoot, "desktop-root.json"), `${JSON.stringify({
+        executablePath: outerExecutablePath,
+        pid: 4321,
+        stamp: {
+          app: APP_KEYS.DESKTOP,
+          ipc: "/tmp/open-design/ipc/release-beta/desktop.sock",
+          mode: "runtime",
+          namespace,
+          source: SIDECAR_SOURCES.TOOLS_PACK,
+        },
+        version: 1,
       })}\n`);
 
       const coldStart = await prepareLegacyPayloadDesktopHandoff({
@@ -220,7 +229,7 @@ describe("legacy payload desktop handoff", () => {
         platform: "darwin",
         randomId: () => "e7e48cc4-7334-4d99-ab8e-830b2360dff0",
         runtimeRoot,
-        source: SIDECAR_SOURCES.PACKAGED,
+        source: SIDECAR_SOURCES.TOOLS_PACK,
       });
 
       expect(coldStart).toMatchObject({
@@ -234,6 +243,19 @@ describe("legacy payload desktop handoff", () => {
       });
       if (coldStart.kind !== "prepared") throw new Error("expected cold-start handoff");
       expect(coldStart.descriptor).not.toHaveProperty("target");
+      spawn.mockClear();
+      await expect(executeLegacyPayloadDesktopHandoff(coldStart, {
+        confirmTimeoutMs: 100,
+        env: { PATH: "/usr/bin" },
+        now: () => new Date("2026-07-15T03:00:01.000Z"),
+        requestDesktop,
+        sleep: async () => undefined,
+        spawn: spawn as never,
+      })).resolves.toMatchObject({
+        kind: "scheduled",
+        target: { generation: 3, version: "1.2.3-beta.5" },
+      });
+      expect(spawn).toHaveBeenCalledOnce();
     } finally {
       await rm(root, { force: true, recursive: true });
     }

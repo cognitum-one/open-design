@@ -42,6 +42,7 @@ import {
 const HANDOFF_CONFIRM_TIMEOUT_MS = 60_000;
 const HANDOFF_POLL_INTERVAL_MS = 100;
 const HANDOFF_PAYLOAD_WAIT_TIMEOUT_MS = 60_000;
+const PACKAGED_NAMESPACE_BASE_ROOT_ENV = "OD_PACKAGED_NAMESPACE_BASE_ROOT";
 const SIDECAR_ONLY_ENV_KEYS = [
   "ELECTRON_RUN_AS_NODE",
   "OD_SIDECAR_BASE",
@@ -127,8 +128,11 @@ function containsPath(root: string, target: string): boolean {
   return normalizedTarget === normalizedRoot || normalizedTarget.startsWith(`${normalizedRoot}${sep}`);
 }
 
-function desktopProcessEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const desktopEnv = { ...env };
+function desktopProcessEnv(env: NodeJS.ProcessEnv, runtimeRoot: string): NodeJS.ProcessEnv {
+  const desktopEnv: NodeJS.ProcessEnv = {
+    ...env,
+    [PACKAGED_NAMESPACE_BASE_ROOT_ENV]: dirname(dirname(runtimeRoot)),
+  };
   for (const key of SIDECAR_ONLY_ENV_KEYS) delete desktopEnv[key];
   return desktopEnv;
 }
@@ -177,7 +181,10 @@ async function readDesktopIdentity(
     !isAbsolute(identity.executablePath) ||
     identity.stamp?.app !== APP_KEYS.DESKTOP ||
     identity.stamp.namespace !== namespace ||
-    identity.stamp.source !== SIDECAR_SOURCES.PACKAGED
+    (
+      identity.stamp.source !== SIDECAR_SOURCES.PACKAGED &&
+      identity.stamp.source !== SIDECAR_SOURCES.TOOLS_PACK
+    )
   ) return null;
   return identity;
 }
@@ -244,7 +251,10 @@ export async function prepareLegacyPayloadDesktopHandoff(options: {
   runtimeRoot: string;
   source: SidecarSource;
 }): Promise<LegacyPayloadDesktopHandoffPreparation> {
-  if (options.source !== SIDECAR_SOURCES.PACKAGED) {
+  if (
+    options.source !== SIDECAR_SOURCES.PACKAGED &&
+    options.source !== SIDECAR_SOURCES.TOOLS_PACK
+  ) {
     return { kind: "none", reason: "not-packaged" };
   }
   const platform = options.platform ?? process.platform;
@@ -326,8 +336,7 @@ export async function prepareLegacyPayloadDesktopHandoff(options: {
     initialSource?.version === appVersion &&
     samePointer(existing.source, existing.target) &&
     samePointer(existing.target, initialSource) &&
-    samePointer(initialPrevious, initialSource) &&
-    samePointer(attempt, initialSource);
+    samePointer(initialPrevious, initialSource);
   const canResumePreparedState =
     existing?.state === "prepared" &&
     existing.source.version === appVersion &&
@@ -494,7 +503,7 @@ export async function executeLegacyPayloadDesktopHandoff(
     child = (options.spawn ?? spawn)(prepared.descriptor.payloadExecutablePath, args, {
       cwd: dirname(prepared.descriptor.payloadExecutablePath),
       detached: true,
-      env: desktopProcessEnv(options.env ?? process.env),
+      env: desktopProcessEnv(options.env ?? process.env, prepared.runtimeRoot),
       stdio: "ignore",
       windowsHide: true,
     });
