@@ -66,6 +66,31 @@ describe("open-design host contract", () => {
     expect(host.version).toBe(OPEN_DESIGN_HOST_VERSION);
   });
 
+  it("keeps v2 hosts valid when optional updater menu capabilities are absent", async () => {
+    const host = createMockOpenDesignHost();
+    const legacyUpdater = { ...host.updater };
+    delete legacyUpdater.setMenuLabels;
+    delete legacyUpdater.subscribeOpenDialog;
+    const scope: Record<string, unknown> = {
+      [OPEN_DESIGN_HOST_GLOBAL]: { ...host, updater: legacyUpdater },
+    };
+
+    expect(isOpenDesignHostBridge(scope[OPEN_DESIGN_HOST_GLOBAL])).toBe(true);
+    expect(getOpenDesignHost(scope)).not.toBeNull();
+    expect(subscribeHostUpdaterOpenDialog(vi.fn(), scope)()).toBeUndefined();
+    await expect(setHostUpdaterMenuLabels({
+      check: "Check for Updates…",
+      checking: "Checking for Updates…",
+      downloading: "Downloading Update…",
+      install: "Install Update…",
+      installing: "Installing Update…",
+      restart: "Restart to Update Open Design…",
+    }, scope)).resolves.toEqual({
+      ok: false,
+      reason: "host build does not support updater menu labels",
+    });
+  });
+
   it("rejects legacy or incomplete bridge shapes", () => {
     expect(isOpenDesignHostBridge({ version: OPEN_DESIGN_HOST_VERSION })).toBe(false);
     expect(isOpenDesignHostBridge({ ...createMockOpenDesignHost(), version: 1 })).toBe(false);

@@ -31,7 +31,7 @@ function status(
 }
 
 describe("macOS update menu", () => {
-  it("shows the familiar check action only for a supported macOS updater", () => {
+  it("shows the familiar check action on macOS and keeps unsupported fallback reachable", () => {
     expect(deriveDesktopUpdateMenuItem({
       labels: DEFAULT_DESKTOP_UPDATE_MENU_LABELS,
       platform: "darwin",
@@ -52,7 +52,12 @@ describe("macOS update menu", () => {
       labels: DEFAULT_DESKTOP_UPDATE_MENU_LABELS,
       platform: "darwin",
       status: status("unsupported", { enabled: false, supported: false }),
-    }).visible).toBe(false);
+    })).toMatchObject({
+      action: "open-dialog",
+      enabled: true,
+      label: "Check for Updates…",
+      visible: true,
+    });
   });
 
   it("maps busy and ready updater states to honest menu copy", () => {

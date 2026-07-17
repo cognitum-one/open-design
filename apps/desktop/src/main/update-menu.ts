@@ -47,7 +47,10 @@ export function deriveDesktopUpdateMenuItem(input: {
   status: DesktopUpdateStatusSnapshot;
 }): DesktopUpdateMenuItem {
   const { labels, platform, status } = input;
-  const visible = platform === "darwin" && status.enabled && status.supported && status.state !== "unsupported";
+  // Keep the conventional macOS discovery point available even when the
+  // in-app updater is unsupported. The renderer then offers the safe manual
+  // download fallback instead of making the capability disappear.
+  const visible = platform === "darwin";
   if (!visible) {
     return { action: null, enabled: false, label: labels.check, visible: false };
   }

@@ -252,7 +252,7 @@ export function subscribeHostUpdaterOpenDialog(
   scope: OpenDesignHostGlobalScope = globalThis,
 ): () => void {
   const host = getOpenDesignHost(scope);
-  if (host == null) return () => undefined;
+  if (host == null || typeof host.updater.subscribeOpenDialog !== "function") return () => undefined;
   try {
     return host.updater.subscribeOpenDialog(listener);
   } catch {
@@ -267,6 +267,9 @@ export async function setHostUpdaterMenuLabels(
 ): Promise<OpenDesignHostActionResult> {
   const host = getOpenDesignHost(scope);
   if (host == null) return unavailable("Open Design host is not available");
+  if (typeof host.updater.setMenuLabels !== "function") {
+    return unavailable("host build does not support updater menu labels");
+  }
   try {
     return await host.updater.setMenuLabels(labels);
   } catch (error) {

@@ -70,7 +70,10 @@ describe("desktop updater host boundary", () => {
     expect(main).not.toContain("showUpdateResultDialog");
     const runtime = source("src/main/runtime.ts");
     expect(runtime).toContain("pendingUpdateDialogRequest");
-    expect(runtime).toContain("if (!revealed)");
+    expect(runtime).toContain("UPDATER_DIALOG_READY_EVENT");
+    expect(runtime).toContain("if (!updateDialogReady)");
+    expect(runtime).toContain("updateDialogReady = false");
+    expect(runtime).toContain("pendingUpdateDialogRequest == null");
   });
 
   it("keeps installer launch separate from desktop process shutdown", () => {

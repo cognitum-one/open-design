@@ -322,10 +322,13 @@ export type OpenDesignHostBridge = {
     download(options?: OpenDesignHostUpdaterActionOptions): Promise<OpenDesignHostUpdaterStatusSnapshot>;
     install(options?: OpenDesignHostUpdaterActionOptions): Promise<OpenDesignHostUpdaterStatusSnapshot>;
     quit(options?: OpenDesignHostUpdaterActionOptions): Promise<OpenDesignHostActionResult>;
-    setMenuLabels(labels: OpenDesignHostUpdaterMenuLabels): Promise<OpenDesignHostActionResult>;
+    // Optional additions to the v2 bridge. Renderer bundles can be newer than
+    // the desktop host during recovery/update handoffs, so callers must
+    // feature-detect these capabilities instead of invalidating the host.
+    setMenuLabels?(labels: OpenDesignHostUpdaterMenuLabels): Promise<OpenDesignHostActionResult>;
     status(options?: OpenDesignHostUpdaterActionOptions): Promise<OpenDesignHostUpdaterStatusSnapshot>;
     subscribe(listener: OpenDesignHostUpdaterStatusListener): () => void;
-    subscribeOpenDialog(listener: OpenDesignHostUpdaterOpenDialogListener): () => void;
+    subscribeOpenDialog?(listener: OpenDesignHostUpdaterOpenDialogListener): () => void;
   };
   version: typeof OPEN_DESIGN_HOST_VERSION;
 };

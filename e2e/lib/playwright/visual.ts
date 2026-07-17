@@ -170,6 +170,14 @@ type VisualPageOptions = {
   agents?: readonly unknown[];
 };
 
+type VisualUpdaterStatus = {
+  artifact?: { name?: string; platformKey?: string; type?: string; url: string };
+  availableVersion?: string;
+  currentVersion: string;
+  downloadPath?: string;
+  state: 'downloaded' | 'not-available' | 'unsupported';
+};
+
 type VisualVelaAccountOptions = {
   profile?: string;
   plan?: string;
@@ -529,6 +537,64 @@ export async function configureVisualPage(page: Page, options: VisualPageOptions
     installStabilityStyle();
     document.addEventListener('DOMContentLoaded', installStabilityStyle, { once: true });
   }, [VISUAL_STYLE_ID] as const);
+}
+
+export async function configureVisualUpdaterHost(page: Page, status: VisualUpdaterStatus): Promise<void> {
+  await page.addInitScript((updaterStatus) => {
+    type OpenDialogListener = (request: { source: string }) => void;
+    const globalWithUpdater = window as typeof window & {
+      __od__?: unknown;
+      __odOpenVisualUpdateDialog?: () => void;
+    };
+    let openDialogListener: OpenDialogListener | null = null;
+    const snapshot = {
+      arch: 'arm64',
+      capabilities: {
+        canApplyInPlace: true,
+        canDownload: true,
+        canOpenInstaller: false,
+        requiresManualInstall: false,
+      },
+      channel: 'beta',
+      enabled: updaterStatus.state !== 'unsupported',
+      mode: 'js-incremental',
+      platform: 'darwin',
+      supported: updaterStatus.state !== 'unsupported',
+      ...updaterStatus,
+    };
+    const ok = async () => ({ ok: true as const });
+    globalWithUpdater.__od__ = {
+      version: 2,
+      browser: { clearData: ok },
+      capture: { page: async () => ({ ok: true, dataUrl: 'data:image/png;base64,', h: 1, w: 1 }) },
+      client: { platform: 'darwin', type: 'desktop' },
+      pdf: { print: ok },
+      pet: { setVisible: () => undefined },
+      project: {
+        pickAndImport: async () => ({ canceled: true, ok: false }),
+        pickAndReplaceWorkingDir: async () => ({ canceled: true, ok: false }),
+      },
+      shell: { openExternal: ok, openPath: ok },
+      updater: {
+        check: async () => snapshot,
+        download: async () => snapshot,
+        install: async () => snapshot,
+        quit: ok,
+        setMenuLabels: ok,
+        status: async () => snapshot,
+        subscribe: () => () => undefined,
+        subscribeOpenDialog: (listener: OpenDialogListener) => {
+          openDialogListener = listener;
+          return () => {
+            if (openDialogListener === listener) openDialogListener = null;
+          };
+        },
+      },
+    };
+    globalWithUpdater.__odOpenVisualUpdateDialog = () => {
+      openDialogListener?.({ source: 'mac-app-menu' });
+    };
+  }, status);
 }
 
 export async function mockSignedInVelaAccount(

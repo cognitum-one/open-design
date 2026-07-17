@@ -22,6 +22,7 @@ const OPEN_DESIGN_HOST_GLOBAL: typeof import('@open-design/host').OPEN_DESIGN_HO
 const OPEN_DESIGN_HOST_VERSION: typeof import('@open-design/host').OPEN_DESIGN_HOST_VERSION = 2;
 const UPDATER_STATUS_EVENT = 'od:update:status-changed';
 const UPDATER_OPEN_DIALOG_EVENT = 'od:update:open-dialog';
+const UPDATER_DIALOG_READY_EVENT = 'od:update:dialog-ready';
 const APP_CONFIG_CHANGED_IPC_CHANNEL = 'od:app-config-changed';
 const APP_CONFIG_CHANGED_EVENT = 'open-design:app-config-changed';
 
@@ -288,8 +289,10 @@ const updater = {
       listener({ source: request.source });
     };
     ipcRenderer.on(UPDATER_OPEN_DIALOG_EVENT, handler);
+    ipcRenderer.send(UPDATER_DIALOG_READY_EVENT, true);
     return () => {
       ipcRenderer.removeListener(UPDATER_OPEN_DIALOG_EVENT, handler);
+      ipcRenderer.send(UPDATER_DIALOG_READY_EVENT, false);
     };
   },
 };

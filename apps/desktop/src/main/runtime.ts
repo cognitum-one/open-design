@@ -279,6 +279,7 @@ const DESKTOP_PET_WINDOW_HEIGHT = 300;
 const DESKTOP_PET_WINDOW_MARGIN = 24;
 const UPDATER_STATUS_EVENT = "od:update:status-changed";
 const UPDATER_OPEN_DIALOG_EVENT = "od:update:open-dialog";
+const UPDATER_DIALOG_READY_EVENT = "od:update:dialog-ready";
 const DESIGN_BROWSER_PARTITION = "persist:open-design-design-browser";
 const UPDATER_IPC_CHANNELS = [
   "od:update:status",
@@ -1907,6 +1908,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   for (const channel of UPDATER_IPC_CHANNELS) {
     ipcMain.removeHandler(channel);
   }
+  ipcMain.removeAllListeners(UPDATER_DIALOG_READY_EVENT);
   ipcMain.handle("shell:open-external", async (_event, url: string) => {
     // http(s) as before, plus a mailto strictly to our support address (the
     // crash screen's "Email us"); no other scheme opens.
@@ -2144,6 +2146,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     },
     width: 1280,
   });
+  let pendingUpdateDialogRequest: OpenDesignHostUpdaterOpenDialogRequest | null = null;
+  let updateDialogReady = false;
   installWindowChromeCssHook(window);
   showWindowButtons(window);
   attachDownloadSaveAsDialog(window);
@@ -2152,6 +2156,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     window.setTitle(windowTitle);
   });
   window.webContents.on("did-start-loading", () => {
+    updateDialogReady = false;
     console.info("[open-design desktop] main window did-start-loading", {
       pendingUrl,
       url: window.webContents.getURL(),
@@ -2200,6 +2205,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   // PostHog with `device_id = installationId`. Best-effort: a failure to
   // reach the daemon must not block the crash recovery flow.
   window.webContents.on("render-process-gone", (_event, details) => {
+    updateDialogReady = false;
     // During app quit / teardown the renderer goes away and the window (and its
     // webContents) can already be destroyed when this fires. Reading getURL()
     // then throws "Object has been destroyed" as a fatal uncaught exception, so
@@ -2285,6 +2291,13 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       throw new Error("host IPC is only available to the main Open Design window");
     }
   };
+  ipcMain.on(UPDATER_DIALOG_READY_EVENT, (event, ready: unknown) => {
+    if (event.sender !== window.webContents) return;
+    updateDialogReady = ready === true;
+    if (!updateDialogReady || pendingUpdateDialogRequest == null || window.isDestroyed()) return;
+    window.webContents.send(UPDATER_OPEN_DIALOG_EVENT, pendingUpdateDialogRequest);
+    pendingUpdateDialogRequest = null;
+  });
   const discoverUpdateDaemonBaseUrl = async (): Promise<string> => {
     const daemonUrl = await options.discoverDaemonUrl?.();
     const baseUrl = daemonUrl ?? await options.discoverUrl();
@@ -2577,7 +2590,6 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     splashStartedAt = created.startedAt;
   }
 
-  let pendingUpdateDialogRequest: OpenDesignHostUpdaterOpenDialogRequest | null = null;
   let revealed = false;
   let revealing = false;
 
@@ -2588,10 +2600,6 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     window.show();
     window.focus();
     ensureWindowVisible(window);
-    if (pendingUpdateDialogRequest != null) {
-      window.webContents.send(UPDATER_OPEN_DIALOG_EVENT, pendingUpdateDialogRequest);
-      pendingUpdateDialogRequest = null;
-    }
     if (splash != null && !splash.isDestroyed()) splash.close();
     // The app is now truly up (mounted + shown). Fire once — revealed guards
     // re-entry — so callers can mark "reached running".
@@ -2793,6 +2801,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       }
       unsubscribeUpdater();
       ipcMain.removeAllListeners("desktop-pet:set-visible");
+      ipcMain.removeAllListeners(UPDATER_DIALOG_READY_EVENT);
       for (const channel of UPDATER_IPC_CHANNELS) {
         ipcMain.removeHandler(channel);
       }
@@ -2839,11 +2848,12 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     },
     openUpdateDialog(request) {
       if (window.isDestroyed()) return;
-      if (!revealed) {
+      if (!updateDialogReady) {
         pendingUpdateDialogRequest = request;
-        return;
+      } else {
+        window.webContents.send(UPDATER_OPEN_DIALOG_EVENT, request);
       }
-      window.webContents.send(UPDATER_OPEN_DIALOG_EVENT, request);
+      if (!revealed) return;
       window.show();
       window.focus();
     },
