@@ -89,6 +89,8 @@ const MCP_BOOLEAN_FLAGS = new Set([
   'help',
   'h',
 ]);
+const COGNITUM_STRING_FLAGS = new Set(['daemon-url']);
+const COGNITUM_BOOLEAN_FLAGS = new Set(['help', 'h', 'json']);
 
 // Hoisted next to MCP_*_FLAGS for the same TDZ reason as the MEDIA flags
 // above: `od mcp install <agent>` dispatches through SUBCOMMAND_MAP during
@@ -317,6 +319,7 @@ const SUBCOMMAND_MAP = {
   artifacts: runArtifacts,
   media: runMedia,
   mcp: runMcp,
+  cognitum: runCognitum,
   amr: runAmr,
   research: runResearch,
   plugin: runPlugin,
@@ -1279,6 +1282,52 @@ async function runMcp(args) {
 
   const { runMcpStdio } = await import('./mcp.js');
   await runMcpStdio({ daemonUrl });
+}
+
+async function runCognitum(args) {
+  const action = args.find((arg) => !arg.startsWith('-')) ?? 'status';
+  let flags;
+  try {
+    flags = parseFlags(args.filter((arg) => arg !== action), {
+      string: COGNITUM_STRING_FLAGS,
+      boolean: COGNITUM_BOOLEAN_FLAGS,
+    });
+  } catch (error) {
+    console.error(error.message);
+    process.exit(2);
+  }
+  if (flags.help || flags.h || action === 'help') {
+    console.log(`Usage: od cognitum <status|login|logout> [--json] [--daemon-url <url>]
+
+Manage Cognitum OAuth through the running Open Design daemon. Login opens the
+Cognitum authorization page through Meta-Proxy; status output is redacted and
+never includes access tokens, refresh tokens, API keys, or the proxy token.`);
+    return;
+  }
+  const route = action === 'logout' ? '/api/cognitum/session' : action === 'login'
+    ? '/api/cognitum/login'
+    : action === 'status'
+      ? '/api/cognitum/status'
+      : null;
+  if (!route) {
+    console.error(`Unknown cognitum action: ${action}`);
+    process.exit(2);
+  }
+  const base = (await cliDaemonUrl(flags)).replace(/\/$/, '');
+  const response = await fetch(`${base}${route}`, {
+    method: action === 'login' ? 'POST' : action === 'logout' ? 'DELETE' : 'GET',
+  });
+  const body = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+  if (flags.json) {
+    process.stdout.write(`${JSON.stringify(body, null, 2)}\n`);
+  } else {
+    const status = body.status ?? body;
+    console.log(`Cognitum: ${status.authState ?? 'unknown'}`);
+    console.log(`Meta-Proxy: ${status.installed ? (status.proxyRunning ? 'running' : 'installed') : 'not installed'}`);
+    if (status.dataPlane) console.log(`Data plane: ${status.dataPlane}`);
+    if (status.error) console.error(status.error);
+  }
+  if (!response.ok) process.exit(1);
 }
 
 function printMcpHelp() {

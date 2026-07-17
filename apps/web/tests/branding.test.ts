@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveProductBrand } from '../src/branding';
+import { applyProductBrand, resolveProductBrand } from '../src/branding';
 
 describe('product branding', () => {
   it('keeps the upstream identity when no distribution profile is configured', () => {
@@ -37,5 +37,11 @@ describe('product branding', () => {
     });
     expect(brand.productName).toHaveLength(80);
     expect(brand.accent).toBe('#c96442');
+  });
+
+  it('does not leak Cognitum-only OAuth copy into the upstream profile', () => {
+    expect(applyProductBrand('settings.onboardingCloudTitle', 'Sign in to Open Design')).toBe(
+      'Sign in to Open Design',
+    );
   });
 });

@@ -1,0 +1,67 @@
+.card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  border: 1px solid color-mix(in srgb, var(--brand-accent, #0bbccc) 34%, var(--border));
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 90% 0%, color-mix(in srgb, #47f59a 12%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface-card, #111722) 94%, #071820);
+}
+
+.head,
+.actions,
+.status {
+  display: flex;
+  align-items: center;
+}
+
+.head {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.identity {
+  display: grid;
+  gap: 4px;
+}
+
+.identity strong {
+  font-size: 15px;
+}
+
+.identity span,
+.detail {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.status {
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #87919e;
+}
+
+.dot[data-connected='true'] {
+  background: #47f59a;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #47f59a 14%, transparent);
+}
+
+.actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.error {
+  color: var(--danger, #ff6b6b);
+  font-size: 12px;
+}

@@ -201,6 +201,7 @@ import { loadMmdRouteLaunchEnv } from './runtimes/mmd-routes.js';
 import { preparePromptFileForAgent } from './runtimes/prompt-file.js';
 import { TerminalControlSequenceStripper } from './runtimes/terminal-control.js';
 import { buildOpenCodeByokProviderConfig } from './runtimes/byok-opencode.js';
+import { COGNITUM_META_LLM_AGENT_ID } from './runtimes/defs/cognitum-meta-llm.js';
 import {
   persistPlainStreamArtifacts,
   plainStdoutFromRunEvents,
@@ -604,6 +605,8 @@ import { registerDeployRoutes, registerDeploymentCheckRoutes } from './routes/de
 import { registerMediaRoutes } from './routes/media.js';
 import { registerProjectRoutes, registerProjectArtifactRoutes, registerProjectFileRoutes, registerProjectUploadRoutes } from './routes/project/index.js';
 import { registerVelaRoutes } from './routes/vela.js';
+import { registerCognitumRoutes } from './routes/cognitum.js';
+import { createCognitumIntegration } from './integrations/cognitum.js';
 import { registerFinalizeRoutes, registerImportRoutes, registerProjectExportRoutes } from './import-export-routes.js';
 import { registerHandoffRoutes } from './routes/handoff.js';
 import { EmptyTranscriptError, synthesizeHandoffPrompt } from './design/index.js';
@@ -2033,6 +2036,7 @@ export async function startServer({
   }
 
   const app = express();
+  const cognitumIntegration = createCognitumIntegration(process.env);
   installRouteRegistrationGuard(app);
   // Clipper page captures are self-contained HTML with inlined images plus a
   // Figma IR, which for an image-heavy site (The Economist, news front pages)
@@ -3197,6 +3201,7 @@ export async function startServer({
     http: { getPublicBaseUrl },
     env: process.env,
   });
+  registerCognitumRoutes(app, { cognitum: cognitumIntegration });
 
   const pluginRouteHelpers = {
     PLUGIN_PREVIEWS_DIR,
@@ -4268,12 +4273,32 @@ export async function startServer({
       );
     if (!def.bin)
       return design.runs.fail(run, 'AGENT_UNAVAILABLE', 'agent has no binary');
-    const byokOpenCodeProvider = def.id === 'byok-opencode'
+    let byokOpenCodeProvider = def.id === 'byok-opencode'
       ? buildOpenCodeByokProviderConfig(
           byokProvider,
           typeof model === 'string' ? model : null,
         )
       : null;
+    if (def.id === COGNITUM_META_LLM_AGENT_ID) {
+      try {
+        const client = await cognitumIntegration.ensureClientConfig();
+        byokOpenCodeProvider = buildOpenCodeByokProviderConfig(
+          {
+            protocol: 'openai',
+            apiKey: client.token,
+            baseUrl: client.baseUrl,
+            requiresApiKey: true,
+          },
+          typeof model === 'string' && model ? model : 'cognitum-auto',
+        );
+      } catch (error) {
+        return design.runs.fail(
+          run,
+          'AGENT_AUTH_REQUIRED',
+          error instanceof Error ? error.message : 'Cognitum authentication is required.',
+        );
+      }
+    }
     if (def.id === 'byok-opencode' && !byokOpenCodeProvider) {
       return design.runs.fail(
         run,

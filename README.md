@@ -5,6 +5,46 @@
 > `open-design` package and protocol identifiers remain internal. See
 > [the distribution contract](docs/cognitum-media-factory.md).
 
+## Cognitum-native model service
+
+This fork has a first-class **Cognitum Meta-LLM** runtime. Cognitum OAuth is
+completed by the local Meta-Proxy; Open Design's daemon reads only redacted
+connection state and passes the loopback proxy credential directly to OpenCode.
+OAuth access and refresh tokens never enter the browser, React state, local
+storage, project files, or the Open Design database.
+
+```text
+Media Factory Studio → Open Design daemon → Meta-Proxy → Meta-LLM on GCP
+                          redacted status   OAuth 2.1     tenant-isolated
+```
+
+In the branded onboarding screen, choose **Sign in with Cognitum**. From the CLI:
+
+```bash
+od cognitum login
+od cognitum status --json
+od cognitum logout
+```
+
+The runtime exposes the governed aliases `cognitum-auto`, `cognitum-low`,
+`cognitum-mid`, and `cognitum-high`. Meta-LLM derives the tenant from the verified
+credential; browser-supplied tenant headers cannot choose or override it. See the
+[integration decision](docs/adr/0002-cognitum-meta-llm-oauth-runtime.md) and
+[deployment guide](docs/cognitum-media-factory.md).
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/screenshots/cognitum/media-factory-home.png" alt="Cognitum Media Factory branded home with the governed creation prompt" /><br/>
+<sub><b>Media Factory home</b> — Cognitum branding, artifact templates, and the governed creation entry point.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/screenshots/cognitum/meta-llm-settings.png" alt="Cognitum Meta-LLM connection settings showing connected cloud plane and tenant" /><br/>
+<sub><b>Native Meta-LLM connection</b> — redacted Meta-Proxy state, cloud-plane disclosure, and server-derived tenant identity.</sub>
+</td>
+</tr>
+</table>
+
 <details>
 <summary>Upstream Open Design project information</summary>
 

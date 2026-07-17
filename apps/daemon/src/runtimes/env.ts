@@ -137,7 +137,11 @@ export function spawnEnvForAgent(
   if (agentId === 'codex') {
     return finalizeRuntimeEnv(env, sandboxRuntime);
   }
-  if (agentId === 'opencode' || agentId === 'byok-opencode') {
+  if (
+    agentId === 'opencode' ||
+    agentId === 'byok-opencode' ||
+    agentId === 'cognitum-meta-llm'
+  ) {
     stripKeysCaseInsensitive(env, [
       'OPENCODE',
       'OPENCODE_PID',
