@@ -21,6 +21,7 @@ export type AnalyticsEventName =
   | 'run_retry_finished'
   // Packaged updater lifecycle
   | 'update_install_result'
+  | 'update_check_result'
   | 'update_apply_observed'
   // Packaged startup failure — emitted by the packaged MAIN process (not the
   // daemon) when daemon/web sidecars die before reporting status, i.e. the
@@ -106,4 +107,3 @@ export type TrackingPageName =
 // Alias kept for backwards-compatibility inside the contracts file; v2 wire
 // format uses the field name `page_name` for settings events too.
 export type TrackingSettingsPage = 'settings';
-

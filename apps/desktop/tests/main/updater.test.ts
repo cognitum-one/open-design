@@ -968,6 +968,7 @@ describe("desktop updater", () => {
 
   it("relaunches mac launcher payloads through the installed app bundle from a payload-backed process", async () => {
     const root = makeRoot();
+    const observationRoot = join(root, "observations", "installer");
     const fixture = await createUpdaterFixture({
       artifactBody: "open design mac dmg fixture",
       channel: "beta",
@@ -1003,6 +1004,7 @@ describe("desktop updater", () => {
           [DESKTOP_UPDATE_ENV.CURRENT_VERSION]: "1.0.0-beta.2",
           [DESKTOP_UPDATE_ENV.OPEN_DRY_RUN]: "0",
         },
+        installerObservationRoot: observationRoot,
         launcherRoot,
         launcherLaunchPath,
         launcherRuntimePath,
@@ -1060,6 +1062,16 @@ describe("desktop updater", () => {
           root: await realpath(join(root, "updates")),
         },
       ]);
+      const flowIds = await readdir(observationRoot);
+      const observation = JSON.parse(
+        await readFile(join(observationRoot, flowIds[0] ?? "", "summary.json"), "utf8"),
+      ) as Record<string, unknown>;
+      expect(observation).toMatchObject({
+        artifactType: "payload",
+        fromVersion: "1.0.0-beta.2",
+        result: "pending",
+        toVersion: "1.0.0-beta.3",
+      });
     } finally {
       await fixture.close();
       rmSync(root, { force: true, recursive: true });

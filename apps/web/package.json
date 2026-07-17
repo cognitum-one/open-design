@@ -22,7 +22,9 @@
   ],
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:media-factory": "node scripts/with-brand-profile.ts dev",
     "build": "next build",
+    "build:media-factory": "node scripts/with-brand-profile.ts build",
     "build:sidecar": "tsc -p tsconfig.sidecar.json",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run -c vitest.config.ts --maxWorkers=2"

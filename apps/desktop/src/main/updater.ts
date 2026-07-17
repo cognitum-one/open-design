@@ -889,7 +889,7 @@ function selectedPackageLauncherArtifact(config: DesktopUpdaterConfig, preferPay
 }
 
 function installerObservationArtifactType(value: string | undefined): InstallerObservationArtifactType | null {
-  if (value === "dmg" || value === "installer") return value;
+  if (value === "dmg" || value === "installer" || value === "payload") return value;
   return null;
 }
 
@@ -3038,8 +3038,10 @@ export function createDesktopUpdater(
       );
     }
     if (activeRelease.ref.artifact.type === "payload") {
+      let observation: InstallerObservationHandle | null = null;
       try {
         const appliedAt = now().toISOString();
+        observation = await writeInstallObservation(appliedAt);
         await activatePreparedLauncherPayloadRelease({
           activeRelease,
           config,
@@ -3047,6 +3049,7 @@ export function createDesktopUpdater(
         });
         const relaunch = await requestPayloadRelaunch(opened.root.realRoot);
         if (relaunch.error != null && relaunch.error.length > 0) {
+          await markInstallObservationOpenFailed(observation, now().toISOString());
           return setState(DESKTOP_UPDATE_STATES.ERROR, createError("payload-relaunch-failed", relaunch.error));
         }
         installFrozen = true;
@@ -3071,6 +3074,7 @@ export function createDesktopUpdater(
         });
         return setState(DESKTOP_UPDATE_STATES.DOWNLOADED);
       } catch (applyError) {
+        await markInstallObservationOpenFailed(observation, now().toISOString());
         return setState(
           DESKTOP_UPDATE_STATES.ERROR,
           createError("launcher-payload-apply-failed", applyError instanceof Error ? applyError.message : String(applyError)),

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 
 import { installErrorHandlers } from '../../src/analytics/error-tracking';
 import { installWebObservability } from '../../src/observability/install';
+import { PRODUCT_BRAND } from '../../src/branding';
 
 // Install browser exception handlers at module-load time, before any other
 // client code can throw. The hooks buffer events until AnalyticsProvider
@@ -24,7 +25,7 @@ installWebObservability();
 // shell HTML the daemon can serve as the SPA fallback.
 const App = dynamic(() => import('../../src/App').then((m) => m.App), {
   ssr: false,
-  loading: () => <div className="od-loading-shell">Loading Open Design…</div>,
+  loading: () => <div className="od-loading-shell">Loading {PRODUCT_BRAND.productName}…</div>,
 });
 
 export function ClientApp() {

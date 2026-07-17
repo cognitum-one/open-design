@@ -2622,7 +2622,15 @@ export async function startServer({
 
   app.get('/api/health', async (_req, res) => {
     const versionInfo = await readCurrentAppVersionInfo();
-    res.json({ ok: true, version: versionInfo.version });
+    res.json({
+      ok: true,
+      version: versionInfo.version,
+      distribution: {
+        id: process.env.OD_DISTRIBUTION_ID?.trim() || 'open-design',
+        productName: process.env.OD_PRODUCT_NAME?.trim() || 'Open Design',
+        profile: process.env.OD_BRAND_PROFILE?.trim() || 'open-design',
+      },
+    });
   });
 
   app.get('/api/ready', async (_req, res) => {

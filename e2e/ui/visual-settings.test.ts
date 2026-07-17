@@ -4,6 +4,7 @@ import {
   captureVisual,
   captureVisualTarget,
   configureVisualPage,
+  configureVisualUpdaterHost,
   gotoVisualHome,
   gotoVisualWorkspace,
   mockSignedInVelaAccount,
@@ -14,6 +15,39 @@ import {
 } from '@/playwright/visual';
 
 test.describe.configure({ timeout: T.xlong });
+
+test('[P1] captures the macOS update-ready dialog', async ({ page }) => {
+  await configureVisualUpdaterHost(page, {
+    artifact: {
+      name: 'open-design-0.15.2-beta.1-payload.zip',
+      platformKey: 'mac',
+      type: 'payload',
+      url: 'https://releases.open-design.ai/beta/open-design-0.15.2-beta.1-payload.zip',
+    },
+    availableVersion: '0.15.2-beta.1',
+    currentVersion: '0.15.1',
+    downloadPath: '/visual/open-design-0.15.2-beta.1-payload.zip',
+    state: 'downloaded',
+  });
+  await configureVisualPage(page);
+  await gotoVisualHome(page);
+  await page.waitForFunction(() => {
+    return typeof (window as typeof window & { __odOpenVisualUpdateDialog?: unknown })
+      .__odOpenVisualUpdateDialog === 'function';
+  });
+  await page.evaluate(() => {
+    (window as typeof window & { __odOpenVisualUpdateDialog?: () => void })
+      .__odOpenVisualUpdateDialog?.();
+  });
+
+  const dialog = page.getByTestId('update-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('v0.15.2-beta.1 is ready');
+  await expect(dialog.getByRole('button', { name: 'Install and restart' })).toBeVisible();
+  await waitForVisualFonts(page);
+
+  await captureVisual(page, 'visual-update-dialog-ready');
+});
 
 test('[P2] captures the settings execution surface', async ({ page }) => {
   await configureVisualPage(page);

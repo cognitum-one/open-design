@@ -944,15 +944,25 @@ export interface Dict {
   // Desktop updater
   'updater.available': string;
   'updater.availableBody': string;
+  'updater.activeRunsTitle': string;
+  'updater.activeRunsBody': string;
+  'updater.activeRunsUnknownBody': string;
   'updater.checking': string;
   'updater.download': string;
   'updater.downloading': string;
   'updater.downloadingPercent': string;
+  'updater.dialogAvailableGeneric': string;
+  'updater.dialogAvailableVersion': string;
+  'updater.dialogCheckFailed': string;
+  'updater.dialogReadyGeneric': string;
+  'updater.dialogReadyVersion': string;
+  'updater.dialogUnsupported': string;
   'updater.done': string;
   'updater.failed': string;
   'updater.installerOpenBody': string;
   'updater.installerOpened': string;
   'updater.later': string;
+  'updater.manualDownload': string;
   'updater.allowSilentUpdates': string;
   'updater.openFailedFallback': string;
   'updater.installRestart': string;
@@ -968,7 +978,9 @@ export interface Dict {
   'updater.ready': string;
   'updater.readyGeneric': string;
   'updater.readyVersion': string;
+  'updater.restartAnyway': string;
   'updater.upToDate': string;
+  'updater.viewVersionFeatures': string;
 
   // Post-update "what's new" card on the home surface. Release-configured
   // copy comes from the release feed; these keys cover the card chrome and

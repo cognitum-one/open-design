@@ -1,4 +1,5 @@
 import type { AppTheme } from '../types';
+import { PRODUCT_BRAND } from '../branding';
 
 const ACCENT_VARS = [
   '--accent',
@@ -8,7 +9,7 @@ const ACCENT_VARS = [
   '--accent-hover',
 ] as const;
 
-export const DEFAULT_ACCENT_COLOR = '#c96442';
+export const DEFAULT_ACCENT_COLOR = PRODUCT_BRAND.accent;
 export const ACCENT_SWATCHES = [
   DEFAULT_ACCENT_COLOR,
   '#2563eb',

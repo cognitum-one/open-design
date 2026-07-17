@@ -338,3 +338,27 @@ code {
   -webkit-mask: url(/brand-icon.svg) center / contain no-repeat;
   mask: url(/brand-icon.svg) center / contain no-repeat;
 }
+
+html[data-brand-profile="cognitum-media-factory"] .od-brand-glyph {
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 34%, transparent);
+  -webkit-mask: none;
+  mask: none;
+}
+
+html[data-brand-profile="cognitum-media-factory"] .od-brand-glyph::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  bottom: 2px;
+  width: 24%;
+  height: 24%;
+  min-width: 4px;
+  min-height: 4px;
+  border-radius: 50%;
+  background: var(--product-accent-secondary);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--product-accent-secondary) 72%, transparent);
+}
