@@ -12,6 +12,7 @@ import {
   saveConfig,
   shouldSyncLocalMediaProvidersToDaemon,
   syncComposioConfigToDaemon,
+  isLoopbackWebHostname,
   syncConfigToDaemon,
   syncMediaProvidersToDaemon,
 } from '../../src/state/config';
@@ -84,6 +85,23 @@ describe('syncComposioConfigToDaemon', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({}),
     });
+  });
+
+  it('recognizes only loopback browser hostnames for sensitive daemon configuration', () => {
+    expect(isLoopbackWebHostname('localhost')).toBe(true);
+    expect(isLoopbackWebHostname('127.0.0.1')).toBe(true);
+    expect(isLoopbackWebHostname('[::1]')).toBe(true);
+    expect(isLoopbackWebHostname('192.168.1.123')).toBe(false);
+    expect(isLoopbackWebHostname('media.cognitum.one')).toBe(false);
+  });
+
+  it('does not call the loopback-only Composio endpoint from a LAN page', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      syncComposioConfigToDaemon({ apiKey: 'cmp_secret' }, '192.168.1.123'),
+    ).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
