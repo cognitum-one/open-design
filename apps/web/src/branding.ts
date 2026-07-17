@@ -54,7 +54,19 @@ const brandedCopy: Partial<Record<string, (brand: ProductBrand) => string>> = {
     `These answers seed your Memory profile. ${brand.shortName} reuses it on every task — and keeps learning as you work.`,
 };
 
+const cognitumCopy: Partial<Record<string, (brand: ProductBrand) => string>> = {
+  'settings.onboardingCloudTitle': () => 'Sign in to Cognitum',
+  'settings.onboardingCloudBody': (brand) =>
+    `Connect ${brand.productName} to Cognitum Meta-LLM for tenant-isolated model routing, metering, memory, and continuous optimization.`,
+  'settings.onboardingCloudSignIn': () => 'Sign in with Cognitum',
+  'settings.onboardingCloudContinue': () => 'Continue with Cognitum',
+};
+
 export function applyProductBrand(key: string, translated: string): string {
+  if (PRODUCT_BRAND.profile === 'cognitum-media-factory') {
+    const cognitumOverride = cognitumCopy[key];
+    if (cognitumOverride) return cognitumOverride(PRODUCT_BRAND);
+  }
   const override = brandedCopy[key];
   return override ? override(PRODUCT_BRAND) : translated;
 }

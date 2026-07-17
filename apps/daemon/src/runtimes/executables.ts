@@ -30,6 +30,7 @@ const AGENT_BIN_ENV_KEYS = new Map<string, string>([
   ['mimo', 'MIMO_BIN'],
   ['opencode', 'OPENCODE_BIN'],
   ['byok-opencode', 'OPENCODE_BIN'],
+  ['cognitum-meta-llm', 'OPENCODE_BIN'],
   ['pi', 'PI_BIN'],
   ['qoder', 'QODER_BIN'],
   ['qwen', 'QWEN_BIN'],
@@ -240,7 +241,7 @@ function packagedBuiltInExecutable(
   def: RuntimeAgentDef,
   configuredEnv: Record<string, string> = {},
 ): string | null {
-  if (def.id === 'byok-opencode') {
+  if (def.id === 'byok-opencode' || def.id === 'cognitum-meta-llm') {
     return resolveAmrOpenCodeExecutable({ ...process.env, ...configuredEnv });
   }
   if (def.id !== 'amr') return null;

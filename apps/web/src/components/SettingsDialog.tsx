@@ -40,6 +40,8 @@ import type { Dict } from '../i18n/types';
 import { AgentIcon } from './AgentIcon';
 import { AgentDiagnosticRow } from './AgentDiagnosticRow';
 import { AmrLoginPill } from './AmrLoginPill';
+import { CognitumConnectionCard } from './CognitumConnectionCard';
+import { PRODUCT_BRAND } from '../branding';
 import { PlanBadge } from './PlanBadge';
 import { orderAgentsWithOpenDesignFirst } from './agentOrdering';
 import {
@@ -4282,6 +4284,25 @@ export function SettingsDialog({
               ) : null}
           {cfg.mode === 'daemon' ? (
             <section className="settings-section">
+              {PRODUCT_BRAND.profile === 'cognitum-media-factory' ? (
+                <CognitumConnectionCard
+                  canSelect={agents.some(
+                    (agent) => agent.id === 'cognitum-meta-llm' && agent.available,
+                  )}
+                  selected={cfg.agentId === 'cognitum-meta-llm'}
+                  onSelect={() =>
+                    setCfg((current) => ({
+                      ...current,
+                      mode: 'daemon',
+                      agentId: 'cognitum-meta-llm',
+                      agentModels: {
+                        ...(current.agentModels ?? {}),
+                        'cognitum-meta-llm': { model: 'cognitum-auto' },
+                      },
+                    }))
+                  }
+                />
+              ) : null}
               <div className="section-head">
                 <div>
                   <p className="hint">{t('settings.codeAgentHint')}</p>

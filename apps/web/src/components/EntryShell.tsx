@@ -131,6 +131,9 @@ import {
   type ModelCapabilityTag,
 } from './modelCapabilityTags';
 import { LanguageMenu } from './LanguageMenu';
+import { PRODUCT_BRAND } from '../branding';
+import { beginCognitumLogin, fetchCognitumStatus } from '../providers/cognitum';
+import type { CognitumConnectionStatus } from '@open-design/contracts';
 import { IntegrationsView, type IntegrationTab } from './IntegrationsView';
 import { InlineModelSwitcher } from './InlineModelSwitcher';
 import { enterpriseUrl } from './enterpriseUrl';
@@ -1338,6 +1341,11 @@ function OnboardingView({
   const [amrLoginCancelPending, setAmrLoginCancelPending] = useState(false);
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
   const [amrLoginError, setAmrLoginError] = useState<string | null>(null);
+  const isCognitumBrand = PRODUCT_BRAND.profile === 'cognitum-media-factory';
+  const [cognitumStatus, setCognitumStatus] = useState<CognitumConnectionStatus | null>(null);
+  const [cognitumStatusResolved, setCognitumStatusResolved] = useState(false);
+  const [cognitumLoginPending, setCognitumLoginPending] = useState(false);
+  const [cognitumLoginError, setCognitumLoginError] = useState<string | null>(null);
   const [visibleAgentIds, setVisibleAgentIds] = useState<string[]>([]);
   const [providerTestState, setProviderTestState] = useState<
     | { status: 'idle' }
@@ -1534,11 +1542,67 @@ function OnboardingView({
   }, []);
 
   useEffect(() => {
-    if (!amrAgent || runtime !== null) return;
+    if (!isCognitumBrand) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      try {
+        const next = await fetchCognitumStatus();
+        if (cancelled) return;
+        setCognitumStatus(next);
+        setCognitumStatusResolved(true);
+        if (next.authState === 'authenticating') {
+          setCognitumLoginPending(true);
+          timer = setTimeout(() => void poll(), 1_000);
+        } else {
+          setCognitumLoginPending(false);
+          if (next.authState === 'error') setCognitumLoginError(next.error ?? 'Cognitum sign-in failed.');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCognitumStatusResolved(true);
+          setCognitumLoginPending(false);
+          setCognitumLoginError(error instanceof Error ? error.message : String(error));
+        }
+      }
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [isCognitumBrand, cognitumLoginPending]);
+
+  async function handleCognitumCloudAction() {
+    if (cognitumStatus?.connected) {
+      setRuntime('local');
+      onModeChange('daemon');
+      onAgentChange('cognitum-meta-llm');
+      onAgentModelChange('cognitum-meta-llm', { model: 'cognitum-auto' });
+      setStep((current) => current + 1);
+      return;
+    }
+    setCognitumLoginPending(true);
+    setCognitumLoginError(null);
+    try {
+      const response = await beginCognitumLogin();
+      setCognitumStatus(response.status);
+      setCognitumLoginPending(response.status.authState === 'authenticating');
+      if (response.status.authState === 'error') {
+        setCognitumLoginError(response.status.error ?? 'Cognitum sign-in failed.');
+      }
+    } catch (error) {
+      setCognitumLoginPending(false);
+      setCognitumLoginError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  useEffect(() => {
+    if (isCognitumBrand || !amrAgent || runtime !== null) return;
     setRuntime('amr');
     onModeChange('daemon');
     onAgentChange('amr');
-  }, [amrAgent, onAgentChange, onModeChange, runtime]);
+  }, [amrAgent, isCognitumBrand, onAgentChange, onModeChange, runtime]);
 
   useEffect(() => {
     if (runtime !== 'local') return;
@@ -2557,8 +2621,12 @@ function OnboardingView({
         typeof window.matchMedia === 'function' &&
         window.matchMedia('(prefers-color-scheme: dark)').matches);
     const themeIcon: 'sun' | 'moon' = resolvedDark ? 'moon' : 'sun';
-    const cloudBusy = amrLoginPending;
-    const amrStatusResolving = !amrStatusResolved;
+    const cloudBusy = isCognitumBrand ? cognitumLoginPending : amrLoginPending;
+    const cloudStatusResolving = isCognitumBrand
+      ? !cognitumStatusResolved
+      : !amrStatusResolved;
+    const cloudSignedIn = isCognitumBrand ? cognitumStatus?.connected === true : amrSignedIn;
+    const cloudError = isCognitumBrand ? cognitumLoginError : amrLoginError;
     return (
       <section
         className="onboarding-view onboarding-view--cloud"
@@ -2580,7 +2648,7 @@ function OnboardingView({
           <span
             className="onboarding-cloud__logo od-brand-glyph"
             role="img"
-            aria-label="Open Design"
+            aria-label={PRODUCT_BRAND.productName}
           />
           <h1 className="onboarding-cloud__title">{t('settings.onboardingCloudTitle')}</h1>
           <p className="onboarding-cloud__body">{t('settings.onboardingCloudBody')}</p>
@@ -2588,7 +2656,11 @@ function OnboardingView({
             type="button"
             className="onboarding-cloud__primary"
             onClick={() => {
-              if (amrStatusResolving) return;
+              if (cloudStatusResolving) return;
+              if (isCognitumBrand) {
+                void handleCognitumCloudAction();
+                return;
+              }
               if (amrSignedIn) {
                 recordAmrEntry(analytics.track, 'onboarding_amr_card', new Date(), {
                   metricsConsent: config.telemetry?.metrics === true,
@@ -2610,26 +2682,26 @@ function OnboardingView({
               }
               void handleCloudSignIn();
             }}
-            disabled={cloudBusy || amrLoginCancelPending || amrStatusResolving}
-            aria-busy={cloudBusy || amrStatusResolving ? true : undefined}
+            disabled={cloudBusy || (!isCognitumBrand && amrLoginCancelPending) || cloudStatusResolving}
+            aria-busy={cloudBusy || cloudStatusResolving ? true : undefined}
           >
             <Icon name="orbit" size={17} />
             <span>
               {cloudBusy
                 ? t('settings.amrSigningIn')
-                : amrStatusResolving
+                : cloudStatusResolving
                   ? t('common.loading')
-                  : amrSignedIn
+                  : cloudSignedIn
                     ? t('settings.onboardingCloudContinue')
                     : t('settings.onboardingCloudSignIn')}
             </span>
           </button>
-          {amrLoginError ? (
+          {cloudError ? (
             <span className="onboarding-cloud__error" role="alert">
-              {amrLoginError}
+              {cloudError}
             </span>
           ) : null}
-          {cloudBusy ? (
+          {cloudBusy && !isCognitumBrand ? (
             <button
               type="button"
               className="onboarding-cloud__cancel"
@@ -2674,7 +2746,7 @@ function OnboardingView({
           )}
         </div>
         <footer className="onboarding-cloud__footer">
-          © {new Date().getFullYear()} Open Design · {t('settings.onboardingCloudRights')}
+          © {new Date().getFullYear()} {PRODUCT_BRAND.companyName} · {t('settings.onboardingCloudRights')}
         </footer>
       </section>
     );

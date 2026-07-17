@@ -4,6 +4,7 @@ import { codexAgentDef } from './defs/codex.js';
 import { devinAgentDef } from './defs/devin.js';
 import { opencodeAgentDef } from './defs/opencode.js';
 import { byokOpenCodeAgentDef } from './defs/byok-opencode.js';
+import { cognitumMetaLlmAgentDef } from './defs/cognitum-meta-llm.js';
 import { hermesAgentDef } from './defs/hermes.js';
 import { traeCliAgentDef } from './defs/trae-cli.js';
 import { grokBuildAgentDef } from './defs/grok-build.js';
@@ -34,6 +35,7 @@ const BASE_AGENT_DEFS: RuntimeAgentDef[] = [
   devinAgentDef,
   opencodeAgentDef,
   byokOpenCodeAgentDef,
+  cognitumMetaLlmAgentDef,
   hermesAgentDef,
   traeCliAgentDef,
   grokBuildAgentDef,

@@ -92,6 +92,7 @@ import {
 } from './state/config';
 import { createSilentUpdatePreferenceWriter } from './state/silent-update-preference';
 import { applyAppearanceToDocument } from './state/appearance';
+import { PRODUCT_BRAND } from './branding';
 import { isMacPlatform } from './utils/platform';
 import {
   amrArtifactUpgradeHomeMockOffer,
@@ -776,7 +777,7 @@ function AppInner() {
   }, [activeProjectId, activeFileName]);
 
   useEffect(() => {
-    if (!daemonLive) return;
+    if (!daemonLive || PRODUCT_BRAND.profile === 'cognitum-media-factory') return;
     let cancelled = false;
     let timer: number | null = null;
     const pollGeneration = amrPollGenerationRef.current + 1;
@@ -825,6 +826,7 @@ function AppInner() {
   // AMR_LOGIN_STATUS_EVENT covers logins finishing in surfaces that
   // unmounted before their poll settled.
   useEffect(() => {
+    if (PRODUCT_BRAND.profile === 'cognitum-media-factory') return;
     let cancelled = false;
     const sync = async (
       options: { refresh?: boolean } = {},

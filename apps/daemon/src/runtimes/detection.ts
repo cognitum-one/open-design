@@ -35,7 +35,10 @@ function configuredEnvForAgent(
   configuredEnvByAgent: Record<string, Record<string, string>>,
   agentId: string,
 ): Record<string, string> {
-  const configAgentId = agentId === 'byok-opencode' ? 'opencode' : agentId;
+  const configAgentId =
+    agentId === 'byok-opencode' || agentId === 'cognitum-meta-llm'
+      ? 'opencode'
+      : agentId;
   return configuredEnvByAgent?.[configAgentId] ?? {};
 }
 
