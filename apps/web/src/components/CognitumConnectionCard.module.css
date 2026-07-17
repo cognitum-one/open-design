@@ -65,3 +65,8 @@
   color: var(--danger, #ff6b6b);
   font-size: 12px;
 }
+
+.testMode {
+  color: var(--warning, #f4c95d);
+  font-size: 12px;
+}

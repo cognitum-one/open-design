@@ -79,3 +79,24 @@ RUFLO_STATE_DIR=/var/lib/cognitum/meta-proxy
 The daemon and Meta-Proxy must share the state directory. Never publish the
 loopback proxy port through a GCP load balancer; only the Meta-LLM and Identity
 services are public cloud services.
+
+### Local test user
+
+Localhost development can expose a secondary **Use local test user** button by
+launching the daemon with an isolated Meta-Proxy state directory and an
+explicitly provisioned non-production key:
+
+```bash
+RUFLO_STATE_DIR=/tmp/cognitum-open-design-test \
+OD_WEB_PORT=3000 \
+OD_COGNITUM_LOCAL_TEST_USER=1 \
+OD_COGNITUM_LOCAL_TEST_API_KEY=cog_<64-hex-test-key> \
+pnpm --filter @open-design/daemon dev
+```
+
+The key remains in the daemon process and is piped directly into Meta-Proxy; it
+is never returned to the browser. The endpoint independently requires a
+loopback browser origin. Do not enable this mode in shared or production GCP
+deployments.
+
+![Cognitum localhost test-user sign-in](screenshots/cognitum/local-test-login.png)

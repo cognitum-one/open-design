@@ -3,6 +3,7 @@ import { Button } from '@open-design/components';
 import type { CognitumConnectionStatus } from '@open-design/contracts';
 
 import {
+  beginCognitumLocalTestLogin,
   beginCognitumLogin,
   fetchCognitumStatus,
   logoutCognitum,
@@ -74,9 +75,25 @@ export function CognitumConnectionCard({
     }
   }
 
+  async function signInLocalTestUser() {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await beginCognitumLocalTestLogin();
+      setStatus(response.status);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const connected = status?.connected === true;
   const authenticating = status?.authState === 'authenticating';
   const installed = status?.installed !== false;
+  const loopbackBrowser = typeof window !== 'undefined'
+    && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  const showLocalTestLogin = loopbackBrowser && status?.localTestLoginAvailable === true;
   const tenantLabel = status?.tenantId
     ? `${status.tenantId.slice(0, 8)}${status.tenantId.length > 12 ? `…${status.tenantId.slice(-4)}` : ''}`
     : null;
@@ -109,15 +126,29 @@ export function CognitumConnectionCard({
             </Button>
           </>
         ) : (
-          <Button
-            variant="primary"
-            onClick={() => void signIn()}
-            disabled={busy || authenticating || !installed}
-          >
-            {authenticating ? 'Complete sign-in in your browser' : 'Sign in with Cognitum'}
-          </Button>
+          <>
+            <Button
+              variant="primary"
+              onClick={() => void signIn()}
+              disabled={busy || authenticating || !installed}
+            >
+              {authenticating ? 'Complete sign-in in your browser' : 'Sign in with Cognitum'}
+            </Button>
+            {showLocalTestLogin ? (
+              <Button
+                variant="ghost"
+                onClick={() => void signInLocalTestUser()}
+                disabled={busy || authenticating || !installed}
+              >
+                Use local test user
+              </Button>
+            ) : null}
+          </>
         )}
       </div>
+      {status?.sessionMode === 'local_test' ? (
+        <span className={styles.testMode}>Local test session · server-configured credential</span>
+      ) : null}
       {error || status?.error ? (
         <span className={styles.error} role="alert">{error || status?.error}</span>
       ) : null}
