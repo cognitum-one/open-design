@@ -2,6 +2,8 @@
    Open Design — neutral product workspace
    ============================================================ */
 :root {
+  --product-accent: #c96442;
+  --product-accent-secondary: #2563eb;
   /* Surface palette — neutral app chrome that does not bias generated artifacts.
      Keep warm/brand colors out of preview backgrounds; generated product UI
      must choose its own palette through the active skill/design brief. */
@@ -93,6 +95,38 @@
   --code-body-bg: #f9fafb;
   --code-font-size: 13px;
   --code-line-height: 1.65;
+}
+
+html[data-brand-profile="cognitum-media-factory"] {
+  color-scheme: dark;
+  --bg: #0b0e16;
+  --bg-app: #0b0e16;
+  --bg-panel: #111622;
+  --bg-subtle: #171d2b;
+  --bg-muted: #1c2434;
+  --bg-fill-tertiary: rgba(255, 255, 255, 0.055);
+  --bg-fill-secondary: rgba(255, 255, 255, 0.09);
+  --bg-fill: rgba(255, 255, 255, 0.15);
+  --bg-elevated: #161c2a;
+  --border: #273044;
+  --border-strong: #354158;
+  --border-soft: #1d2637;
+  --text: #e4e9f2;
+  --text-strong: #f6f8fb;
+  --text-muted: #929db0;
+  --text-soft: #68748a;
+  --text-faint: #4d586c;
+  --accent: var(--product-accent);
+  --accent-strong: color-mix(in srgb, var(--product-accent) 86%, white);
+  --accent-soft: color-mix(in srgb, var(--product-accent) 22%, var(--bg-panel));
+  --accent-tint: color-mix(in srgb, var(--product-accent) 11%, var(--bg-panel));
+  --accent-hover: color-mix(in srgb, var(--product-accent) 88%, white);
+  --selected: var(--product-accent-secondary);
+  --selected-soft: color-mix(in srgb, var(--product-accent-secondary) 20%, transparent);
+  --serif: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --sans: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --shadow-md: 0 10px 32px rgba(0, 0, 0, 0.34), 0 0 30px color-mix(in srgb, var(--accent) 8%, transparent);
+  --shadow-lg: 0 26px 72px rgba(0, 0, 0, 0.58), 0 0 42px color-mix(in srgb, var(--accent) 11%, transparent);
 }
 
 /* Dark theme variables — shared between explicit [data-theme="dark"] and the

@@ -98,6 +98,7 @@ import { assetTitle } from './LibraryAssetMeta';
 import { libraryAssetRawUrl } from '../providers/registry';
 import type { LibraryAsset } from '@open-design/contracts';
 import { WorkingDirPicker } from './WorkingDirPicker';
+import { PRODUCT_BRAND } from '../branding';
 import {
   ProjectReferenceModal,
   type ProjectReferenceSelection,
@@ -1226,7 +1227,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
     <section ref={homeHeroRef} className="home-hero" data-testid="home-hero">
       <div className="home-hero__brand" aria-hidden>
         <span className="home-hero__brand-mark od-brand-glyph" />
-        <span className="home-hero__brand-name">Open Design</span>
+        <span className="home-hero__brand-name">{PRODUCT_BRAND.productName}</span>
       </div>
       <h1 className="home-hero__title">{t('homeHero.title')}</h1>
       <p className="home-hero__subtitle">
