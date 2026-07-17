@@ -829,7 +829,11 @@ export async function fetchMediaProvidersFromDaemon(): Promise<DaemonMediaProvid
 
 export async function syncComposioConfigToDaemon(
   config: AppConfig['composio'] | undefined,
+  browserHostname = typeof window === 'undefined' ? 'localhost' : window.location.hostname,
 ): Promise<boolean> {
+  if (!isLoopbackWebHostname(browserHostname)) {
+    return false;
+  }
   const apiKey = config?.apiKey ?? '';
   const payload = {
     ...(apiKey.trim() || !config?.apiKeyConfigured ? { apiKey } : {}),
@@ -844,6 +848,14 @@ export async function syncComposioConfigToDaemon(
   } catch {
     return false;
   }
+}
+
+/** Sensitive daemon configuration routes intentionally accept loopback browsers only. */
+export function isLoopbackWebHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  return normalized === 'localhost'
+    || normalized === '::1'
+    || /^127(?:\.\d{1,3}){3}$/.test(normalized);
 }
 
 // Privacy-sensitive fields the user can revoke. We deliberately keep

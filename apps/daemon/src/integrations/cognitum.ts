@@ -290,8 +290,15 @@ export function createCognitumIntegration(
   async function ensureClientConfig(): Promise<CognitumProxyClientConfig> {
     const auth = await readAuthStatus();
     if (!auth?.connected) throw new Error('Sign in to Cognitum before starting a Meta-LLM run.');
-    const token = await readProxyToken();
-    if (!(await probeProxy(token)).running) {
+    let token: string | undefined;
+    try {
+      token = await readProxyToken();
+    } catch {
+      // A fresh Meta-Proxy installation creates its local client token when
+      // the proxy first starts. Continue into managed startup instead of
+      // misclassifying that expected first-run state as an auth failure.
+    }
+    if (!token || !(await probeProxy(token)).running) {
       if (!managedProxy || managedProxy.exitCode !== null) {
         managedProxy = spawn(binary, [], {
           env,
@@ -304,6 +311,13 @@ export function createCognitumIntegration(
       const deadline = Date.now() + PROXY_START_TIMEOUT_MS;
       while (Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 100));
+        if (!token) {
+          try {
+            token = await readProxyToken();
+          } catch {
+            continue;
+          }
+        }
         if ((await probeProxy(token)).running) return { baseUrl: `${proxyUrl}/v1`, token };
       }
       throw new Error('Meta-Proxy did not become ready in time.');
