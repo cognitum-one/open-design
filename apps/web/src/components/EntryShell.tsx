@@ -132,7 +132,11 @@ import {
 } from './modelCapabilityTags';
 import { LanguageMenu } from './LanguageMenu';
 import { PRODUCT_BRAND } from '../branding';
-import { beginCognitumLogin, fetchCognitumStatus } from '../providers/cognitum';
+import {
+  beginCognitumLocalTestLogin,
+  beginCognitumLogin,
+  fetchCognitumStatus,
+} from '../providers/cognitum';
 import type { CognitumConnectionStatus } from '@open-design/contracts';
 import { IntegrationsView, type IntegrationTab } from './IntegrationsView';
 import { InlineModelSwitcher } from './InlineModelSwitcher';
@@ -1597,6 +1601,19 @@ function OnboardingView({
     }
   }
 
+  async function handleCognitumLocalTestAction() {
+    setCognitumLoginPending(true);
+    setCognitumLoginError(null);
+    try {
+      const response = await beginCognitumLocalTestLogin();
+      setCognitumStatus(response.status);
+      setCognitumLoginPending(false);
+    } catch (error) {
+      setCognitumLoginPending(false);
+      setCognitumLoginError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   useEffect(() => {
     if (isCognitumBrand || !amrAgent || runtime !== null) return;
     setRuntime('amr');
@@ -2627,6 +2644,12 @@ function OnboardingView({
       : !amrStatusResolved;
     const cloudSignedIn = isCognitumBrand ? cognitumStatus?.connected === true : amrSignedIn;
     const cloudError = isCognitumBrand ? cognitumLoginError : amrLoginError;
+    const loopbackBrowser = typeof window !== 'undefined'
+      && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    const showCognitumLocalTestLogin = isCognitumBrand
+      && loopbackBrowser
+      && cognitumStatus?.localTestLoginAvailable === true
+      && !cloudSignedIn;
     return (
       <section
         className="onboarding-view onboarding-view--cloud"
@@ -2696,6 +2719,16 @@ function OnboardingView({
                     : t('settings.onboardingCloudSignIn')}
             </span>
           </button>
+          {showCognitumLocalTestLogin ? (
+            <button
+              type="button"
+              className="onboarding-cloud__local-test"
+              onClick={() => void handleCognitumLocalTestAction()}
+              disabled={cloudBusy || cloudStatusResolving}
+            >
+              Use local test user
+            </button>
+          ) : null}
           {cloudError ? (
             <span className="onboarding-cloud__error" role="alert">
               {cloudError}

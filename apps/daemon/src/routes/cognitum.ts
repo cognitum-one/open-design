@@ -6,6 +6,16 @@ import type {
 
 import type { CognitumIntegration } from '../integrations/cognitum.js';
 
+export function isLoopbackBrowserOrigin(origin: string | undefined): boolean {
+  if (!origin) return false;
+  try {
+    const hostname = new URL(origin).hostname.toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1';
+  } catch {
+    return false;
+  }
+}
+
 export interface RegisterCognitumRoutesDeps {
   cognitum: CognitumIntegration;
 }
@@ -25,6 +35,18 @@ export function registerCognitumRoutes(
       status,
     };
     res.status(body.accepted ? 202 : 503).json(body);
+  });
+
+  app.post('/api/cognitum/login/local-test', async (req, res) => {
+    if (!isLoopbackBrowserOrigin(req.get('origin'))) {
+      return res.status(403).json({ error: 'Local test login is restricted to localhost.' });
+    }
+    const status = await deps.cognitum.loginLocalTestUser();
+    const body: CognitumLoginResponse = {
+      accepted: status.connected && status.sessionMode === 'local_test',
+      status,
+    };
+    return res.status(body.accepted ? 200 : 503).json(body);
   });
 
   app.delete('/api/cognitum/session', async (_req, res) => {

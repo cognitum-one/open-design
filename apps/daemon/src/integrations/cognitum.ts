@@ -26,8 +26,20 @@ export interface CognitumProxyClientConfig {
 export interface CognitumIntegration {
   status(): Promise<CognitumConnectionStatus>;
   login(): Promise<CognitumConnectionStatus>;
+  loginLocalTestUser(): Promise<CognitumConnectionStatus>;
   logout(): Promise<CognitumConnectionStatus>;
   ensureClientConfig(): Promise<CognitumProxyClientConfig>;
+}
+
+export function localTestLoginConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  const key = env.OD_COGNITUM_LOCAL_TEST_API_KEY?.trim() ?? '';
+  const isolatedStateDir = env.RUFLO_STATE_DIR?.trim() ?? '';
+  return (
+    env.NODE_ENV !== 'production'
+    && env.OD_COGNITUM_LOCAL_TEST_USER === '1'
+    && isolatedStateDir.length > 0
+    && /^cog_[a-f\d]{64}$/i.test(key)
+  );
 }
 
 export function parseMetaProxyAuthStatus(value: string): MetaProxyAuthStatus {
@@ -69,6 +81,9 @@ export function createCognitumIntegration(
   let loginChild: ChildProcess | null = null;
   let loginError: string | undefined;
   let managedProxy: ChildProcess | null = null;
+  let localTestActive = false;
+  const localTestAvailable = localTestLoginConfigured(env);
+  const localTestKey = env.OD_COGNITUM_LOCAL_TEST_API_KEY?.trim() ?? '';
 
   async function readAuthStatus(): Promise<MetaProxyAuthStatus | null> {
     try {
@@ -162,6 +177,8 @@ export function createCognitumIntegration(
               : 'disconnected',
         connected: auth.connected,
         proxyRunning: proxy.running,
+        localTestLoginAvailable: localTestAvailable,
+        ...(localTestActive && auth.connected ? { sessionMode: 'local_test' as const } : {}),
         credentialSource: auth.credential_source,
         dataPlane: proxy.dataPlane ?? auth.data_plane,
         ...(proxy.version ? { proxyVersion: proxy.version } : {}),
@@ -177,6 +194,7 @@ export function createCognitumIntegration(
         authState: 'error',
         connected: false,
         proxyRunning: false,
+        localTestLoginAvailable: localTestAvailable,
         error: safeError(error),
       };
     }
@@ -184,6 +202,7 @@ export function createCognitumIntegration(
 
   async function login(): Promise<CognitumConnectionStatus> {
     if (loginChild) return status();
+    localTestActive = false;
     loginError = undefined;
     try {
       loginChild = spawn(binary, ['login', '--browser', '--cloud'], {
@@ -207,6 +226,48 @@ export function createCognitumIntegration(
     }
   }
 
+  async function loginLocalTestUser(): Promise<CognitumConnectionStatus> {
+    if (!localTestAvailable) {
+      loginError = 'Local test login is not configured on this daemon.';
+      return status();
+    }
+    if (loginChild) return status();
+    loginError = undefined;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(binary, ['login', '--paste-key', '--cloud'], {
+          env,
+          stdio: ['pipe', 'ignore', 'pipe'],
+          windowsHide: true,
+        });
+        let stderr = '';
+        const timer = setTimeout(() => {
+          child.kill('SIGTERM');
+          reject(new Error('Meta-Proxy local test login timed out'));
+        }, COMMAND_TIMEOUT_MS);
+        child.stderr?.on('data', (chunk: Buffer | string) => {
+          stderr = `${stderr}${String(chunk)}`.slice(-300);
+        });
+        child.once('error', (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+        child.once('close', (code) => {
+          clearTimeout(timer);
+          if (code === 0) resolve();
+          else reject(new Error(stderr.trim() || `Meta-Proxy login exited with code ${code ?? 'unknown'}`));
+        });
+        child.stdin?.end(`${localTestKey}\n`);
+      });
+      localTestActive = true;
+      return status();
+    } catch (error) {
+      localTestActive = false;
+      loginError = safeError(error);
+      return status();
+    }
+  }
+
   async function logout(): Promise<CognitumConnectionStatus> {
     if (loginChild) {
       loginChild.kill('SIGTERM');
@@ -222,6 +283,7 @@ export function createCognitumIntegration(
     } catch (error) {
       loginError = safeError(error);
     }
+    localTestActive = false;
     return status();
   }
 
@@ -249,5 +311,5 @@ export function createCognitumIntegration(
     return { baseUrl: `${proxyUrl}/v1`, token };
   }
 
-  return { status, login, logout, ensureClientConfig };
+  return { status, login, loginLocalTestUser, logout, ensureClientConfig };
 }

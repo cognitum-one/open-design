@@ -2145,6 +2145,33 @@
   outline-offset: 2px;
 }
 
+.onboarding-cloud__local-test {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding-cloud__local-test:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.onboarding-cloud__local-test:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.onboarding-cloud__local-test:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .onboarding-cloud__secondary,
 .onboarding-cloud__cancel {
   margin-top: 22px;

@@ -12,6 +12,10 @@ export interface CognitumConnectionStatus {
   /** Server-derived Cognitum account identifier. Never accepted from browser input. */
   tenantId?: string;
   accessTokenExpiresAt?: number;
+  /** True only when the daemon has an explicitly configured local test credential. */
+  localTestLoginAvailable?: boolean;
+  /** Identifies an ephemeral localhost test session without exposing its credential. */
+  sessionMode?: 'local_test';
   error?: string;
 }
 

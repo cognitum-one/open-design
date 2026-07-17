@@ -17,6 +17,13 @@ export async function beginCognitumLogin(): Promise<CognitumLoginResponse> {
   return body;
 }
 
+export async function beginCognitumLocalTestLogin(): Promise<CognitumLoginResponse> {
+  const response = await fetch('/api/cognitum/login/local-test', { method: 'POST' });
+  const body = (await response.json()) as CognitumLoginResponse;
+  if (!response.ok) throw new Error(body.status?.error || 'Local test login is unavailable.');
+  return body;
+}
+
 export async function logoutCognitum(): Promise<CognitumLogoutResponse> {
   const response = await fetch('/api/cognitum/session', { method: 'DELETE' });
   const body = (await response.json()) as CognitumLogoutResponse;
