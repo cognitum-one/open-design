@@ -3,6 +3,12 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Security backport package set used only for Node; the application package
+    # set and every existing flake input remain on their current locks.
+    node-runtime-nixpkgs = {
+      url = "github:NixOS/nixpkgs/62ef8c83d850a195c2dfc95975ac1d4b915e6086";
+      flake = false;
+    };
     flake-utils.url = "github:numtide/flake-utils";
     dream2nix = {
       url = "github:nix-community/dream2nix";
@@ -17,6 +23,7 @@
   outputs = {
     self,
     nixpkgs,
+    node-runtime-nixpkgs,
     flake-utils,
     dream2nix,
     home-manager,
@@ -39,21 +46,18 @@
 
     perSystem = flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
-      # Preserve the locked nixpkgs recipe while applying the October security
-      # release. A later nixpkgs update must never be downgraded by this floor.
-      nodejs =
-        if pkgs.lib.versionAtLeast pkgs.nodejs_24.version "24.22.1"
-        then pkgs.nodejs_24
-        else pkgs.nodejs_24.override {
-          nodejs-slim =
-            (pkgs.callPackage "${nixpkgs}/pkgs/development/web/nodejs/nodejs.nix" {
-              python = pkgs.python3;
-            }) {
-              version = "24.22.1";
-              sha256 = "4f5379796280cdaeb0c2f358fd04b6a16cc4fb7dfa83b5a8c91a9d963b435231";
-              patches = pkgs.nodejs-slim_24.patches;
-            };
-        };
+      nodeRuntimePkgs = import node-runtime-nixpkgs {inherit system;};
+      # The official 26.05 security backport carries the compatible Node recipe
+      # and shared-library fixes. Never relabel the old compiler or transplant
+      # its obsolete patches onto a newer source archive.
+      nodejs = let
+        candidate =
+          if pkgs.lib.versionAtLeast pkgs.nodejs_24.version "24.22.1"
+          then pkgs.nodejs_24
+          else nodeRuntimePkgs.nodejs_24;
+      in
+        assert pkgs.lib.versionAtLeast candidate.version "24.22.1";
+        candidate;
       workspacePackageManifests = workspacePaths:
         map (workspacePath: "${workspacePath}/package.json") workspacePaths;
       # Keep in sync with .github/workflows/ci.yml change_scopes
