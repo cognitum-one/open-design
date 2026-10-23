@@ -39,7 +39,21 @@
 
     perSystem = flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
-      nodejs = pkgs.nodejs_24;
+      # Preserve the locked nixpkgs recipe while applying the October security
+      # release. A later nixpkgs update must never be downgraded by this floor.
+      nodejs =
+        if pkgs.lib.versionAtLeast pkgs.nodejs_24.version "24.22.1"
+        then pkgs.nodejs_24
+        else pkgs.nodejs_24.override {
+          nodejs-slim =
+            (pkgs.callPackage "${nixpkgs}/pkgs/development/web/nodejs/nodejs.nix" {
+              python = pkgs.python3;
+            }) {
+              version = "24.22.1";
+              sha256 = "4f5379796280cdaeb0c2f358fd04b6a16cc4fb7dfa83b5a8c91a9d963b435231";
+              patches = pkgs.nodejs-slim_24.patches;
+            };
+        };
       workspacePackageManifests = workspacePaths:
         map (workspacePath: "${workspacePath}/package.json") workspacePaths;
       # Keep in sync with .github/workflows/ci.yml change_scopes
@@ -113,7 +127,7 @@
       # nix store prefetch-file --hash-type sha256 \
       #   https://registry.npmjs.org/pnpm/-/pnpm-${NEW_VERSION}.tgz
       # ```
-      pnpm_10 = pkgs.pnpm_10.overrideAttrs (_old: rec {
+      pnpm_10 = (pkgs.pnpm_10.override {inherit nodejs;}).overrideAttrs (_old: rec {
         version = "10.33.2";
         src = pkgs.fetchurl {
           url = "https://registry.npmjs.org/pnpm/-/pnpm-${version}.tgz";
