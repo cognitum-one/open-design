@@ -6,7 +6,7 @@
     # Security backport package set used only for Node; the application package
     # set and every existing flake input remain on their current locks.
     node-runtime-nixpkgs = {
-      url = "github:NixOS/nixpkgs/62ef8c83d850a195c2dfc95975ac1d4b915e6086";
+      url = "github:NixOS/nixpkgs/7d8eff2d34e4143dd91b5753f410031d306e20a9";
       flake = false;
     };
     flake-utils.url = "github:numtide/flake-utils";
@@ -46,18 +46,38 @@
 
     perSystem = flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
-      nodeRuntimePkgs = import node-runtime-nixpkgs {inherit system;};
-      # The official 26.05 security backport carries the compatible Node recipe
-      # and shared-library fixes. Never relabel the old compiler or transplant
-      # its obsolete patches onto a newer source archive.
-      nodejs = let
-        candidate =
-          if pkgs.lib.versionAtLeast pkgs.nodejs_24.version "24.22.1"
-          then pkgs.nodejs_24
-          else nodeRuntimePkgs.nodejs_24;
-      in
-        assert pkgs.lib.versionAtLeast candidate.version "24.22.1";
-        candidate;
+      nodeRuntimePkgs = import node-runtime-nixpkgs {
+        inherit system;
+        overlays = [
+          (final: prev: {
+            simdjson = let
+              candidate = prev.callPackage ./nix/simdjson-security.nix {};
+            in
+              assert prev.lib.versions.major candidate.version == "4";
+              assert prev.lib.versionAtLeast candidate.version "4.6.11";
+              candidate;
+            # Ada transitively links simdutf 9; patch that compatible API line.
+            # Node 24's separate simdutf 6 dependency must remain unchanged.
+            ada = let
+              simdutfForAda = prev.callPackage ./nix/simdutf-security.nix {};
+            in
+              assert prev.lib.versions.major simdutfForAda.version == "9";
+              assert prev.lib.versionAtLeast simdutfForAda.version "9.2.1";
+              prev.ada.override {
+                simdutf = simdutfForAda;
+                simdjson = final.simdjson;
+              };
+          })
+        ];
+      };
+      # Use the separately qualified runtime closure. A Node version label in
+      # another package set does not prove its shared libraries are patched.
+      nodejs =
+        assert pkgs.lib.versions.major nodeRuntimePkgs.nodejs_24.version == "24";
+        assert pkgs.lib.versionAtLeast nodeRuntimePkgs.nodejs_24.version "24.22.1";
+        assert pkgs.lib.versionAtLeast nodeRuntimePkgs.c-ares.version "1.34.9";
+        assert pkgs.lib.versionAtLeast nodeRuntimePkgs.brotli.version "1.2.1";
+        nodeRuntimePkgs.nodejs_24;
       workspacePackageManifests = workspacePaths:
         map (workspacePath: "${workspacePath}/package.json") workspacePaths;
       # Keep in sync with .github/workflows/ci.yml change_scopes

@@ -95,17 +95,17 @@
     "node-runtime-nixpkgs": {
       "flake": false,
       "locked": {
-        "lastModified": 1792588226,
-        "narHash": "sha256-QSDhcx1tmOpxeWf2NZcP/O6bpB8EFNCow3QIXEd90Yw=",
+        "lastModified": 1792739237,
+        "narHash": "sha256-wlDSweweUXL581+qWfm88aN+bogC1pyu9jKIYAfP/M0=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "62ef8c83d850a195c2dfc95975ac1d4b915e6086",
+        "rev": "7d8eff2d34e4143dd91b5753f410031d306e20a9",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "62ef8c83d850a195c2dfc95975ac1d4b915e6086",
+        "rev": "7d8eff2d34e4143dd91b5753f410031d306e20a9",
         "type": "github"
       }
     },
