@@ -49,7 +49,7 @@
     "micromark": "4.0.2",
     "micromark-extension-gfm": "3.0.0",
     "motion": "12.40.0",
-    "next": "16.2.6",
+    "next": "16.4.1",
     "openai": "6.38.0",
     "posthog-js": "1.374.2",
     "react": "18.3.1",
