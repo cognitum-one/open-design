@@ -92,6 +92,23 @@
         "type": "github"
       }
     },
+    "node-runtime-nixpkgs": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792739237,
+        "narHash": "sha256-wlDSweweUXL581+qWfm88aN+bogC1pyu9jKIYAfP/M0=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "7d8eff2d34e4143dd91b5753f410031d306e20a9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "7d8eff2d34e4143dd91b5753f410031d306e20a9",
+        "type": "github"
+      }
+    },
     "purescript-overlay": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -141,7 +158,8 @@
         "dream2nix": "dream2nix",
         "flake-utils": "flake-utils",
         "home-manager": "home-manager",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "node-runtime-nixpkgs": "node-runtime-nixpkgs"
       }
     },
     "slimlock": {
